@@ -3,7 +3,7 @@ import { testMikrotikConnection, getMikrotikConfig } from '@/lib/mikrotik';
 
 export async function GET(req: NextRequest) {
   try {
-    const config = getMikrotikConfig();
+    const config = await getMikrotikConfig();
 
     console.log('[Test] MikroTik Configuration:');
     console.log(`  Host: ${config.host}`);
