@@ -49,8 +49,8 @@ export async function POST(request: Request) {
         amount: amountInMinorUnits,
         currency: "KES",
         metadata: {
-          mac,
-          ip,
+          macAddress: mac,
+          ipAddress: ip,
           siteId: currentSite,
           packageId,
           phoneNumber

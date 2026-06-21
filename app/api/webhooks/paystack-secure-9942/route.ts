@@ -57,42 +57,49 @@ async function processSuccessfulPayment(paymentData: any) {
     let voucherCode = generateVoucherCode();
     const expiresAt = new Date(Date.now() + durationMin * 60 * 1000);
 
-    // 2. Database Operations
-    await prisma.$transaction([
-      prisma.voucher.create({
-        data: {
-          code: voucherCode,
-          durationMin,
-          price: Number(amount),
-          isUsed: true,
-          activatedAt: new Date(),
-          siteId: siteId
-        },
-      }),
-      prisma.payment.create({
-        data: {
-          transactionRef: reference,
-          amount: Number(amount),
-          phoneNumber: String(phoneNumber),
-          voucherCode: voucherCode,
-          offerId: dbOffer ? packageId : null,
-          status: 'active',
-          expiresAt: expiresAt,
-          siteId: siteId,
-          resultDesc: `Paystack: ${packageName}`
-        }
-      }),
-      prisma.paymentEvent.create({
-        data: {
-          externalReference: reference,
-          phoneNumber: String(phoneNumber),
-          amount: Number(amount),
-          status: 'SUCCESS',
-          resultDesc: `Voucher ${voucherCode} generated`,
-          siteId: siteId
-        }
-      })
-    ]);
+    // 2. Database Operations - Upsert payment to handle pre-created records
+    await prisma.voucher.create({
+      data: {
+        code: voucherCode,
+        durationMin,
+        price: Number(amount),
+        isUsed: true,
+        activatedAt: new Date(),
+        siteId: siteId
+      },
+    });
+
+    await prisma.payment.upsert({
+      where: { transactionRef: reference },
+      update: {
+        status: 'active',
+        voucherCode: voucherCode,
+        expiresAt: expiresAt,
+        resultDesc: `Paystack: ${packageName} (Activated via Webhook)`
+      },
+      create: {
+        transactionRef: reference,
+        amount: Number(amount),
+        phoneNumber: String(phoneNumber),
+        voucherCode: voucherCode,
+        offerId: dbOffer ? packageId : null,
+        status: 'active',
+        expiresAt: expiresAt,
+        siteId: siteId,
+        resultDesc: `Paystack: ${packageName}`
+      }
+    });
+
+    await prisma.paymentEvent.create({
+      data: {
+        externalReference: reference,
+        phoneNumber: String(phoneNumber),
+        amount: Number(amount),
+        status: 'SUCCESS',
+        resultDesc: `Voucher ${voucherCode} generated`,
+        siteId: siteId
+      }
+    });
 
     // 3. MikroTik Provisioning
     const routerResult = await createMikrotikVoucher(
