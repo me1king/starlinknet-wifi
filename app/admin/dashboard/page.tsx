@@ -350,8 +350,9 @@ export default function AdminDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0a0c10] text-gray-100 p-6 font-sans">
-      {/* HEADER SECTION */}
+    <div className="min-h-screen bg-[#0a0c10] text-gray-100 p-6 font-sans selection:bg-indigo-500/30">
+      <div className="max-w-[1600px] mx-auto">
+        {/* HEADER SECTION */}
       <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print">
         <div className="flex items-center gap-5">
           <div className="p-3.5 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-2xl shadow-xl shadow-indigo-500/20">
@@ -954,6 +955,7 @@ export default function AdminDashboard() {
       )}
 
       <style jsx global>{`
+        body { background-color: #0a0c10 !important; margin: 0; padding: 0; }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 10px; }
         @media print {
