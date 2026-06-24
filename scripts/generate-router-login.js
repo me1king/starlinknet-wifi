@@ -9,7 +9,7 @@ const template = `<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Fulifi.WIFI - Redirecting</title>
+    <title>Starlinknet.WIFI - Redirecting</title>
     <meta http-equiv="refresh" content="0; url=${PORTAL_URL}?mac=$(mac)&ip=$(ip)&siteId=$(identity)&link-login=$(link-login-only)&link-orig=$(link-orig)">
     <meta http-equiv="pragma" content="no-cache">
     <meta http-equiv="expires" content="-1">
@@ -43,7 +43,7 @@ const template = `<!DOCTYPE html>
 </head>
 <body>
     <div class="box">
-        <h2>FULIFI.<span style="color:#6366f1">WIFI</span></h2>
+        <h2>STARLINKNET.<span style="color:#6366f1">WIFI</span></h2>
         <div class="loader"></div>
         <p>Syncing your device with the billing gateway...</p>
         <p style="font-size: 12px; margin-top: 20px;">

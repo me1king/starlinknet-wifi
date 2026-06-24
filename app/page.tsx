@@ -62,6 +62,7 @@ export default function PayPage() {
     // 2. Local Storage Session Backup (Resiliency) & Auto-Reconnect
     const savedRef = localStorage.getItem('active_checkout_ref');
     const savedMac = localStorage.getItem('last_mac');
+    const savedTime = localStorage.getItem('active_checkout_time');
 
     const triggerAutoReconnect = async (currentMac: string) => {
       try {
@@ -85,10 +86,17 @@ export default function PayPage() {
       triggerAutoReconnect(urlMac);
     }
 
-    if (savedRef && (!urlMac || savedMac === urlMac)) {
+    // Only auto-resume if the session is less than 15 minutes old
+    const isStale = savedTime && (Date.now() - parseInt(savedTime)) > 15 * 60 * 1000;
+
+    if (savedRef && !isStale && (!urlMac || savedMac === urlMac)) {
       setActiveReference(savedRef);
       setIsWaitingForPin(true);
       pollVerification(savedRef);
+    } else if (isStale) {
+      // Clean up stale session
+      localStorage.removeItem('active_checkout_ref');
+      localStorage.removeItem('active_checkout_time');
     }
 
     // 3. Check for redirect return
@@ -96,6 +104,7 @@ export default function PayPage() {
     if (reference) {
       setActiveReference(reference);
       localStorage.setItem('active_checkout_ref', reference);
+      localStorage.setItem('active_checkout_time', Date.now().toString());
       if (urlMac) localStorage.setItem('last_mac', urlMac);
       setIsWaitingForPin(true);
       pollVerification(reference);
@@ -179,6 +188,7 @@ export default function PayPage() {
           setIsSuccess(true);
           setIsWaitingForPin(false);
           localStorage.removeItem('active_checkout_ref');
+          localStorage.removeItem('active_checkout_time');
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
           setTimeout(() => loginRouter(data.voucherCode), 2000);
         } else if (data.status === 'failed') {
@@ -220,6 +230,7 @@ export default function PayPage() {
       if (!res.ok) throw new Error(data.error || "Payment failed");
 
       if (data.status === "success") {
+        localStorage.setItem('active_checkout_time', Date.now().toString());
         if (data.authorization_url) {
           localStorage.setItem('active_checkout_ref', data.reference);
           localStorage.setItem('last_mac', mac);
@@ -421,9 +432,10 @@ export default function PayPage() {
                 <button
                   onClick={() => {
                     localStorage.removeItem('active_checkout_ref');
+                    localStorage.removeItem('active_checkout_time');
                     setIsWaitingForPin(false);
                     setActiveReference(null);
-                    window.location.href = '/'; // Full refresh to clear state
+                    window.location.href = window.location.pathname; // Clear URL params too
                   }}
                   style={{ width: "100%", backgroundColor: "transparent", color: "#6b7280", padding: "14px", borderRadius: "12px", fontWeight: "700", cursor: "pointer", border: "1px solid #e5e7eb", transition: "all 0.2s" }}
                   className="hover-scale"

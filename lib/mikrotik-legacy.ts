@@ -18,7 +18,14 @@ async function executeLegacyCommand(command: string[], siteId?: string): Promise
 
         conn.connect((err: any, conn: any) => {
             if (err) {
-                console.error("[MikroTik Legacy] Connection Error:", err);
+                const errMsg = err.message || JSON.stringify(err);
+                console.error("[MikroTik Legacy] Connection Error:", errMsg);
+
+                // Explicitly check for password failure
+                if (errMsg.toLowerCase().includes('invalid user name or password')) {
+                    return reject(new Error("AUTH_FAILED: Invalid Password. Run '/user set admin password=Hazy.123' in MikroTik Terminal."));
+                }
+
                 return reject(err);
             }
 
@@ -63,7 +70,7 @@ export async function createLegacyVoucher(
             `=password=${voucherCode}`,
             `=profile=${profile}`,
             `=server=hotspot1`,
-            `=comment=Fulifi Legacy - ${new Date().toISOString()}`
+            `=comment=Starlinknet.WIFI Legacy - ${new Date().toISOString()}`
         ];
 
         if (rateLimit) cmd.push(`=rate-limit=${rateLimit}`);
@@ -145,9 +152,21 @@ export async function addLegacyVoucherTime(voucherCode: string, minutes: number,
     } catch (e: any) { return { success: false, error: e.message }; }
 }
 
+export async function checkLegacyUserExists(voucherCode: string, siteId?: string) {
+    try {
+        const users = await executeLegacyCommand(['/ip/hotspot/user/print', `?name=${voucherCode}`], siteId);
+        return users.length > 0;
+    } catch (e) { return false; }
+}
+
 export async function testLegacyConnection(siteId?: string) {
     try {
+        console.log("[MikroTik Legacy] Testing connection...");
         const data = await executeLegacyCommand(['/system/identity/print'], siteId);
+        console.log("[MikroTik Legacy] Connection success:", data);
         return { success: true, name: data[0]?.name || "MikroTik" };
-    } catch (e: any) { return { success: false, error: e.message }; }
+    } catch (e: any) {
+        console.error("[MikroTik Legacy] Connection failed:", e.message || e);
+        return { success: false, error: e.message || "Unknown Connection Error" };
+    }
 }

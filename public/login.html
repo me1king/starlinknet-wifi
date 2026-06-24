@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Fulifi.WIFI - Connecting</title>
+    <title>Starlinknet.WIFI - Connecting</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- Redirection to the billing portal -->
     <!-- REPLACE THE URL BELOW WITH YOUR ACTUAL PRODUCTION URL IF DIFFERENT -->
@@ -57,23 +57,6 @@
     </style>
 </head>
 <body>
-    <div class="box">
-        <h2>FULIFI.<span style="color:#6366f1">WIFI</span></h2>
-        <div class="spinner"></div>
-        <p>Syncing your device with the billing gateway. One moment...</p>
 
-        <a href="https://oil-cinnamon-starfish.ngrok-free.dev?mac=$(mac)&ip=$(ip)&siteId=$(identity)&link-login=$(link-login-only)&link-orig=$(link-orig)" class="btn">
-            Open Portal Manually
-        </a>
-    </div>
-
-    <script>
-        // Automatic redirection script with short delay to allow router to process
-        const portalUrl = "https://oil-cinnamon-starfish.ngrok-free.dev?mac=$(mac)&ip=$(ip)&siteId=$(identity)&link-login=$(link-login-only)&link-orig=$(link-orig)";
-
-        setTimeout(function() {
-            window.location.replace(portalUrl);
-        }, 1500);
-    </script>
 </body>
 </html>

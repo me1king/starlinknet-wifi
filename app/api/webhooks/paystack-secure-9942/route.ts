@@ -26,14 +26,18 @@ async function processSuccessfulPayment(paymentData: any) {
     const macAddress = metadata?.macAddress;
     const ipAddress = metadata?.ipAddress;
 
+    console.log(`[Paystack Webhook] 💰 Processing Success: Ref=${reference}, Amt=${amount}, Pkg=${packageId}, MAC=${macAddress}`);
+
     if (!packageId) {
-      throw new Error(`Missing packageId in metadata for reference: ${reference}`);
+      console.error(`[Paystack Webhook] ❌ Missing packageId for Ref: ${reference}. Using fallback '1hr'.`);
     }
 
-    // 1. Fetch package details (with fallback to static catalog)
+    const finalPackageId = packageId || '1hr';
+
+    // 1. Fetch package details
     let dbOffer = await prisma.voucherOffer.findUnique({
-      where: { id: packageId }
-    });
+      where: { id: finalPackageId }
+    }).catch(() => null);
 
     let durationMin = 60;
     let expiryMode = "CONTINUOUS";
@@ -47,70 +51,72 @@ async function processSuccessfulPayment(paymentData: any) {
       speedLimit = dbOffer.speedLimit || "5M/5M";
       packageName = dbOffer.name;
       dataLimitMB = dbOffer.dataLimitMB || 0;
-    } else if (WIFI_BILLING_CATALOG[packageId]) {
-      const staticPkg = WIFI_BILLING_CATALOG[packageId];
-      durationMin = staticPkg.durationHours * 60;
-      speedLimit = `${staticPkg.speedLimit}/${staticPkg.speedLimit}`;
+    } else if (WIFI_BILLING_CATALOG[finalPackageId]) {
+      const staticPkg = WIFI_BILLING_CATALOG[finalPackageId];
+      durationMin = (staticPkg.durationHours || 1) * 60;
+      speedLimit = `${staticPkg.speedLimit || '5M'}/${staticPkg.speedLimit || '5M'}`;
       packageName = staticPkg.name;
     }
 
     let voucherCode = generateVoucherCode();
     const expiresAt = new Date(Date.now() + durationMin * 60 * 1000);
 
-    // 2. Database Operations - Upsert payment to handle pre-created records
-    await prisma.voucher.create({
-      data: {
-        code: voucherCode,
-        durationMin,
-        price: Number(amount),
-        isUsed: true,
-        activatedAt: new Date(),
-        siteId: siteId
-      },
-    });
+    console.log(`[Paystack Webhook] 🎫 Generated Voucher: ${voucherCode} for ${packageName}`);
 
-    await prisma.payment.upsert({
-      where: { transactionRef: reference },
-      update: {
-        status: 'active',
-        voucherCode: voucherCode,
-        expiresAt: expiresAt,
-        resultDesc: `Paystack: ${packageName} (Activated via Webhook)`
-      },
-      create: {
-        transactionRef: reference,
-        amount: Number(amount),
-        phoneNumber: String(phoneNumber),
-        voucherCode: voucherCode,
-        offerId: dbOffer ? packageId : null,
-        status: 'active',
-        expiresAt: expiresAt,
-        siteId: siteId,
-        resultDesc: `Paystack: ${packageName}`
-      }
-    });
+    // 2. Database Operations
+    try {
+        await prisma.voucher.create({
+          data: {
+            code: voucherCode,
+            durationMin,
+            price: Number(amount),
+            isUsed: true,
+            activatedAt: new Date(),
+            siteId: siteId
+          },
+        });
 
-    await prisma.paymentEvent.create({
-      data: {
-        externalReference: reference,
-        phoneNumber: String(phoneNumber),
-        amount: Number(amount),
-        status: 'SUCCESS',
-        resultDesc: `Voucher ${voucherCode} generated`,
-        siteId: siteId
-      }
-    });
+        await prisma.payment.upsert({
+          where: { transactionRef: reference },
+          update: {
+            status: 'active',
+            voucherCode: voucherCode,
+            expiresAt: expiresAt,
+            resultDesc: `Paystack: ${packageName} (Activated via Webhook)`
+          },
+          create: {
+            transactionRef: reference,
+            amount: Number(amount),
+            phoneNumber: String(phoneNumber),
+            voucherCode: voucherCode,
+            offerId: dbOffer ? finalPackageId : null,
+            status: 'active',
+            expiresAt: expiresAt,
+            siteId: siteId,
+            resultDesc: `Paystack: ${packageName}`
+          }
+        });
 
-    // 3. MikroTik Provisioning
-    if (!macAddress) {
-      console.warn(`[Paystack Webhook] WARNING: No MAC address found for reference ${reference}. User will need to enter code manually.`);
+        await prisma.paymentEvent.create({
+          data: {
+            externalReference: reference,
+            phoneNumber: String(phoneNumber),
+            amount: Number(amount),
+            status: 'SUCCESS',
+            resultDesc: `Voucher ${voucherCode} generated`,
+            siteId: siteId
+          }
+        });
+    } catch (dbErr: any) {
+        console.error("[Paystack Webhook] ❌ DB Error:", dbErr.message);
     }
 
-    console.log(`[Paystack] Provisioning ${voucherCode} (${durationMin}m, ${speedLimit}, ${dataLimitMB || 'Unlimited'}MB) on site ${siteId}`);
+    // 3. MikroTik Provisioning
+    console.log(`[Paystack Webhook] 🚀 Provisioning on Router: ${voucherCode} (${durationMin}m)`);
     const routerResult = await createMikrotikVoucher(
       voucherCode,
-      packageId,
-      durationMin + 5, // Increased grace period to 5 mins
+      finalPackageId,
+      durationMin + 5,
       expiryMode,
       macAddress,
       speedLimit,
@@ -130,35 +136,28 @@ async function processSuccessfulPayment(paymentData: any) {
       }
     });
 
-    if (!routerResult.success) {
-      console.error(`[Paystack] !!! CRITICAL: Payment received but Router is OFFLINE for ${voucherCode}`);
-      // Send Emergency WhatsApp Alert
-      try {
-        await sendPersonalAdminAlert(0, "SYSTEM_ALERT", `CRITICAL: Router is OFFLINE. Payment ${reference} received but user ${voucherCode} was NOT provisioned.`);
-      } catch (e) {}
-    }
-
-    // 5. Instant Internet Activation (If possible)
-    if (routerResult.success && macAddress && ipAddress) {
-      console.log(`[Paystack] Attempting instant activation for MAC: ${macAddress}, IP: ${ipAddress}`);
-      const activationResult = await activateHotspotSession(macAddress, ipAddress, voucherCode, siteId);
-      if (!activationResult.success) {
-        console.warn(`[Paystack] Instant activation failed: ${activationResult.message}`);
-      } else {
-        console.log(`[Paystack] ✓ Instant activation successful for ${macAddress}`);
+    if (routerResult.success) {
+      console.log(`[Paystack Webhook] ✅ Router Sync Success: ${voucherCode}`);
+      // Instant Activation
+      if (macAddress && ipAddress) {
+        console.log(`[Paystack Webhook] ⚡ Auto-logging in user: ${macAddress}`);
+        await activateHotspotSession(macAddress, ipAddress, voucherCode, siteId).catch(e => {
+            console.warn("[Paystack Webhook] Auto-login failed:", e.message);
+        });
       }
+    } else {
+      console.error(`[Paystack Webhook] ❌ Router Sync FAILED for ${voucherCode}: ${routerResult.error}`);
     }
 
-    // 4. WhatsApp Alert
+    // 5. WhatsApp Alert
     try {
       await sendPersonalAdminAlert(Number(amount), String(phoneNumber), voucherCode);
     } catch (waError) {
-      console.error("[Paystack] WhatsApp Alert failed:", waError);
+      console.error("[Paystack Webhook] 📱 WhatsApp Alert failed:", waError);
     }
 
-    console.log(`[Paystack] ✓ Fully processed payment reference: ${reference}`);
   } catch (error: any) {
-    console.error('[Paystack] Error processing successful payment:', error.message);
+    console.error('[Paystack Webhook] 🔥 Critical process error:', error.message);
   }
 }
 

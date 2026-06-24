@@ -14,6 +14,8 @@ export default function AdminDashboard() {
   const [metrics, setMetrics] = useState<any>({ totalRevenue: 0 });
   const [offers, setOffers] = useState<any[]>([]);
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
+  const [deviceConnections, setDeviceConnections] = useState<any[]>([]);
+  const [connectionStats, setConnectionStats] = useState<any>(null);
   const [routerInfo, setRouterInfo] = useState<any>({ cpu: 0, memory: '0', uptime: '0s', isOnline: false });
   const [ledger, setLedger] = useState<any[]>([]);
   const [analytics, setAnalytics] = useState<any>(null);
@@ -38,6 +40,9 @@ export default function AdminDashboard() {
   const [generatedBatch, setGeneratedBatch] = useState<any[]>([]);
   const [newSite, setNewSite] = useState({ name: '', location: '', routerHost: '', routerUser: '', routerPass: '' });
   const [showSiteForm, setShowSiteForm] = useState(false);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+
+  const addLog = (msg: string) => setDebugLog(prev => [msg, ...prev].slice(0, 10));
 
   const fetchData = useCallback(async (isInitial = false) => {
     try {
@@ -55,7 +60,7 @@ export default function AdminDashboard() {
         } catch (e) { return null; }
       };
 
-      const [metr, offr, sess, sys, sett, ledg, ana, sitList, alrts, bckps, glob, spd] = await Promise.all([
+      const [metr, offr, sess, sys, sett, ledg, ana, sitList, alrts, bckps, glob, spd, devCon, conStat] = await Promise.all([
         safeFetch(`/api/admin/metrics?siteId=${selectedSite}`),
         safeFetch(`/api/admin/offers?siteId=${selectedSite}`),
         safeFetch(`/api/admin/router/active-users?siteId=${selectedSite}`),
@@ -67,7 +72,9 @@ export default function AdminDashboard() {
         safeFetch(`/api/admin/alerts?siteId=${selectedSite}`),
         safeFetch(`/api/admin/backup?siteId=${selectedSite}`),
         safeFetch('/api/admin/analytics/global'),
-        safeFetch('/api/admin/network/speedtest')
+        safeFetch('/api/admin/network/speedtest'),
+        safeFetch(`/api/device-connection?action=active&siteId=${selectedSite}`),
+        safeFetch(`/api/device-connection?action=stats&siteId=${selectedSite}`)
       ]);
 
       if (metr) setMetrics(metr);
@@ -75,6 +82,8 @@ export default function AdminDashboard() {
       if (sess) setActiveSessions(sess);
       if (sett) setSystemSettings(sett);
       if (ledg) setLedger(ledg);
+      if (devCon) setDeviceConnections(devCon.devices || []);
+      if (conStat) setConnectionStats(conStat);
 
       // Mock analytics if null for the chart demo
       if (ana) {
@@ -336,7 +345,7 @@ export default function AdminDashboard() {
         <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
         <Zap className="w-6 h-6 text-indigo-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
       </div>
-      <div className="text-white text-sm font-black uppercase tracking-[0.3em] animate-pulse">FULIFI CLOUD SYNC</div>
+      <div className="text-white text-sm font-black uppercase tracking-[0.3em] animate-pulse">STARLINKNET CLOUD SYNC</div>
     </div>
   );
 
@@ -349,7 +358,7 @@ export default function AdminDashboard() {
             <LayoutDashboard className="w-8 h-8 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-black text-white uppercase tracking-tighter">FULIFI <span className="text-indigo-500">OPERATOR</span></h1>
+            <h1 className="text-3xl font-black text-white uppercase tracking-tighter">STARLINKNET <span className="text-indigo-500">WIFI</span></h1>
             <div className="flex items-center gap-3 mt-1">
                 <select
                   value={selectedSite}
@@ -373,23 +382,34 @@ export default function AdminDashboard() {
                 </p>
                 <button
                   onClick={async () => {
+                    addLog("Starting Connection Test...");
                     try {
-                      const res = await fetch(`/api/admin/router/test-connection?siteId=${selectedSite}`);
+                      const res = await fetch(`/api/admin/router/test-connection?siteId=${selectedSite}&t=${Date.now()}`);
                       const data = await res.json();
-                      alert(`${data.success ? '✅' : '❌'} ${data.message}\n\nHost: ${data.configUsed?.host || 'N/A'}\nPort: ${data.configUsed?.port || 'N/A'}\nMode: ${data.configUsed?.mode || 'N/A'}\nError: ${data.error || 'None'}\nTip: ${data.tip || 'Check your router settings.'}${data.error?.includes('404') ? '\n\nNote: 404 Error usually means you need to enable REST API in RouterOS v7+ or use Port 8728 for v6.' : ''}`);
 
-                      if (!data.success) {
-                          try {
-                            const portRes = await fetch(`/api/admin/router/debug-port?host=${data.configUsed?.host}&port=${data.configUsed?.port}`);
-                            const portData = await portRes.json();
-                            alert(`🔍 Port Diagnostic Results:\n\n${portData.message}\n\nTip: ${portData.tip || ''}`);
-                          } catch (portErr) {
-                            console.error("Port diagnostic failed:", portErr);
-                          }
+                      if (data.success) {
+                        addLog("✅ Connection Success!");
+                        alert(`✅ ${data.message || 'Connected!'}\n\nHost: ${data.configUsed?.host}\nMode: ${data.configUsed?.mode}`);
+                      } else {
+                        addLog(`❌ Fail: ${data.error}`);
+                        let msg = `❌ Connection Failed\n\nError: ${data.error}\n\nTip: ${data.tip}`;
+                        if (data.error?.includes("AUTH_FAILED")) {
+                            msg = `⚠️ PASSWORD MISMATCH\n\nYour router is rejecting the login.\n\nFIX: Run this in MikroTik Terminal:\n/user set admin password=Hazy.123`;
+                        }
+                        alert(msg);
+
+                        // Run diagnostics if failed
+                        try {
+                          addLog("Running port diagnostics...");
+                          const portRes = await fetch(`/api/admin/router/debug-port?host=${data.configUsed?.host}&port=${data.configUsed?.port}`);
+                          const portData = await portRes.json();
+                          addLog(`Port Debug: ${portData.message}`);
+                        } catch (e) {}
                       }
                       fetchData(false);
                     } catch (err) {
-                      alert("❌ Failed to reach connection diagnostic service.");
+                      addLog("❌ API unreachable");
+                      alert("❌ Could not reach the API service. Make sure Next.js is running.");
                     }
                   }}
                   className="text-[8px] bg-gray-800 hover:bg-gray-700 px-2 py-0.5 rounded border border-gray-700 font-black uppercase text-indigo-400 ml-2"
@@ -397,6 +417,16 @@ export default function AdminDashboard() {
                   Test Connection
                 </button>
             </div>
+            {/* DEBUG CONSOLE */}
+            {debugLog.length > 0 && (
+                <div className="mt-4 p-3 bg-black/80 rounded-xl border border-indigo-500/20 font-mono text-[9px] text-indigo-300">
+                    <div className="flex justify-between items-center mb-1">
+                        <span className="uppercase font-black text-indigo-500">System Logs</span>
+                        <button onClick={() => setDebugLog([])} className="text-gray-500 hover:text-white">Clear</button>
+                    </div>
+                    {debugLog.map((log, i) => <div key={i} className="mb-0.5 opacity-80">{`> ${log}`}</div>)}
+                </div>
+            )}
           </div>
         </div>
 
@@ -525,6 +555,38 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* --- SYSTEM HEALTH & TOOLS --- */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <button onClick={handleRunSpeedTest} className="bg-[#11141b] p-4 rounded-2xl border border-gray-800 hover:border-indigo-500/50 transition-all flex items-center gap-3">
+              <Zap className="w-5 h-5 text-amber-500" />
+              <div className="text-left">
+                <p className="text-[10px] font-black uppercase text-white">Speed Test</p>
+                <p className="text-[8px] text-gray-500 uppercase">Check Bandwidth</p>
+              </div>
+            </button>
+            <button onClick={handleScanSecurity} className="bg-[#11141b] p-4 rounded-2xl border border-gray-800 hover:border-red-500/50 transition-all flex items-center gap-3">
+              <ShieldAlert className="w-5 h-5 text-red-500" />
+              <div className="text-left">
+                <p className="text-[10px] font-black uppercase text-white">Airspace Scan</p>
+                <p className="text-[8px] text-gray-500 uppercase">Rogue AP Detection</p>
+              </div>
+            </button>
+            <button onClick={handleCreateBackup} className="bg-[#11141b] p-4 rounded-2xl border border-gray-800 hover:border-emerald-500/50 transition-all flex items-center gap-3">
+              <Database className="w-5 h-5 text-emerald-500" />
+              <div className="text-left">
+                <p className="text-[10px] font-black uppercase text-white">Cloud Backup</p>
+                <p className="text-[8px] text-gray-500 uppercase">Save Config</p>
+              </div>
+            </button>
+            <button onClick={handleReconcile} className="bg-[#11141b] p-4 rounded-2xl border border-gray-800 hover:border-indigo-500/50 transition-all flex items-center gap-3">
+              <ArrowUpRight className="w-5 h-5 text-indigo-500" />
+              <div className="text-left">
+                <p className="text-[10px] font-black uppercase text-white">Reconcile</p>
+                <p className="text-[8px] text-gray-500 uppercase">Manual Provision</p>
+              </div>
+            </button>
+          </div>
+
           {/* PACKAGE OFFERS LIST */}
           <div className="bg-[#11141b] p-6 rounded-3xl border border-gray-800 shadow-xl">
             <h3 className="text-sm font-black uppercase tracking-widest text-white mb-6 flex items-center gap-2">
@@ -638,6 +700,93 @@ export default function AdminDashboard() {
                     <textarea className="w-full bg-gray-950 border border-gray-800 p-4 rounded-2xl text-xs text-white outline-none h-24 focus:border-amber-500 transition-all" placeholder="Enter urgent maintenance message..." value={systemSettings.bannerText} onChange={e => setSystemSettings({...systemSettings, bannerText: e.target.value})} />
                     <button onClick={handleUpdateSettings} disabled={actionLoading} className="w-full bg-amber-600 hover:bg-amber-500 mt-3 p-3.5 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-amber-900/10 transition-all">Publish Live</button>
                 </div>
+
+                {/* DEVICE CONNECTIONS TRACKING */}
+                <div className="bg-[#11141b] p-8 rounded-3xl border border-gray-800 shadow-2xl">
+                    <div className="flex justify-between items-center mb-8">
+                        <h3 className="text-sm font-black flex items-center gap-2 uppercase text-white tracking-widest"><Wifi className="w-5 h-5 text-emerald-500" /> Device Connection Logs</h3>
+                        {connectionStats && (
+                            <div className="flex gap-4">
+                                <div className="text-right">
+                                    <p className="text-[7px] text-gray-500 uppercase font-black">Active Now</p>
+                                    <p className="text-xs font-black text-emerald-500">{connectionStats.activeConnections}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[7px] text-gray-500 uppercase font-black">Total Today</p>
+                                    <p className="text-xs font-black text-white">{connectionStats.totalConnections}</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-950/50 text-[9px] text-gray-600 uppercase font-black border-b border-gray-800">
+                                <tr>
+                                    <th className="p-4 tracking-widest">Device / MAC</th>
+                                    <th className="p-4 tracking-widest">IP Address</th>
+                                    <th className="p-4 tracking-widest">Voucher</th>
+                                    <th className="p-4 text-right tracking-widest">Connected</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-800/30">
+                                {deviceConnections?.map(d => (
+                                    <tr key={d.id} className="hover:bg-emerald-500/[0.03] transition-all">
+                                        <td className="p-4">
+                                            <p className="text-white font-bold">{d.deviceName || 'Unknown Device'}</p>
+                                            <p className="text-[8px] font-black opacity-40 uppercase tracking-tighter">{d.macAddress}</p>
+                                        </td>
+                                        <td className="p-4 text-gray-400 font-mono text-[10px]">{d.ipAddress}</td>
+                                        <td className="p-4 text-indigo-400 font-bold uppercase">{d.voucherCode || '—'}</td>
+                                        <td className="p-4 text-right text-gray-500 font-bold">{new Date(d.connectedAt).toLocaleTimeString()}</td>
+                                    </tr>
+                                ))}
+                                {deviceConnections.length === 0 && <tr><td colSpan={4} className="p-12 text-center text-gray-700 italic font-black uppercase tracking-[0.2em] text-[9px]">No recent device activity logged</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* RECENT TRANSACTIONS */}
+                <div className="bg-[#11141b] p-8 rounded-3xl border border-gray-800 shadow-2xl">
+                    <h3 className="text-sm font-black flex items-center gap-2 uppercase text-white mb-8 tracking-widest"><TrendingUp className="w-5 h-5 text-indigo-500" /> Recent Transactions</h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-950/50 text-[9px] text-gray-600 uppercase font-black border-b border-gray-800">
+                                <tr>
+                                    <th className="p-4 tracking-widest">Reference</th>
+                                    <th className="p-4 tracking-widest">Amount</th>
+                                    <th className="p-4 tracking-widest">Status</th>
+                                    <th className="p-4 text-right tracking-widest">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-800/30">
+                                {metrics.recentPayments?.map((p: any) => (
+                                    <tr key={p.id} className="hover:bg-indigo-500/[0.03] transition-all">
+                                        <td className="p-4">
+                                            <p className="text-white font-bold text-xs">{p.transactionRef || 'N/A'}</p>
+                                            <p className="text-[8px] font-black opacity-40 uppercase tracking-tighter">{p.phoneNumber || 'NO PHONE'}</p>
+                                        </td>
+                                        <td className="p-4 text-emerald-400 font-black">KES {p.amount}</td>
+                                        <td className="p-4">
+                                            <span className={`px-2 py-0.5 rounded-[4px] text-[8px] font-black uppercase ${p.status === 'active' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                                                {p.status}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-right">
+                                            <button
+                                              onClick={() => handleResendVoucherByRef(p.transactionRef, p.phoneNumber)}
+                                              className="text-[9px] font-black uppercase text-indigo-400 hover:text-white"
+                                            >
+                                                Resend
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {(!metrics.recentPayments || metrics.recentPayments.length === 0) && <tr><td colSpan={4} className="p-12 text-center text-gray-700 italic font-black uppercase tracking-[0.2em] text-[9px]">No recent payments</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <div className="lg:col-span-2 space-y-8 text-xs">
@@ -662,6 +811,93 @@ export default function AdminDashboard() {
                                     </tr>
                                 ))}
                                 {activeSessions.length === 0 && <tr><td colSpan={4} className="p-24 text-center text-gray-700 italic font-black uppercase tracking-[0.3em] text-[10px]">Awaiting Hardware Connections</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* DEVICE CONNECTIONS TRACKING */}
+                <div className="bg-[#11141b] p-8 rounded-3xl border border-gray-800 shadow-2xl">
+                    <div className="flex justify-between items-center mb-8">
+                        <h3 className="text-sm font-black flex items-center gap-2 uppercase text-white tracking-widest"><Wifi className="w-5 h-5 text-emerald-500" /> Device Connection Logs</h3>
+                        {connectionStats && (
+                            <div className="flex gap-4">
+                                <div className="text-right">
+                                    <p className="text-[7px] text-gray-500 uppercase font-black">Active Now</p>
+                                    <p className="text-xs font-black text-emerald-500">{connectionStats.activeConnections}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[7px] text-gray-500 uppercase font-black">Total Today</p>
+                                    <p className="text-xs font-black text-white">{connectionStats.totalConnections}</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-950/50 text-[9px] text-gray-600 uppercase font-black border-b border-gray-800">
+                                <tr>
+                                    <th className="p-4 tracking-widest">Device / MAC</th>
+                                    <th className="p-4 tracking-widest">IP Address</th>
+                                    <th className="p-4 tracking-widest">Voucher</th>
+                                    <th className="p-4 text-right tracking-widest">Connected</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-800/30">
+                                {deviceConnections?.map(d => (
+                                    <tr key={d.id} className="hover:bg-emerald-500/[0.03] transition-all">
+                                        <td className="p-4">
+                                            <p className="text-white font-bold">{d.deviceName || 'Unknown Device'}</p>
+                                            <p className="text-[8px] font-black opacity-40 uppercase tracking-tighter">{d.macAddress}</p>
+                                        </td>
+                                        <td className="p-4 text-gray-400 font-mono text-[10px]">{d.ipAddress}</td>
+                                        <td className="p-4 text-indigo-400 font-bold uppercase">{d.voucherCode || '—'}</td>
+                                        <td className="p-4 text-right text-gray-500 font-bold">{new Date(d.connectedAt).toLocaleTimeString()}</td>
+                                    </tr>
+                                ))}
+                                {deviceConnections.length === 0 && <tr><td colSpan={4} className="p-12 text-center text-gray-700 italic font-black uppercase tracking-[0.2em] text-[9px]">No recent device activity logged</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* RECENT TRANSACTIONS */}
+                <div className="bg-[#11141b] p-8 rounded-3xl border border-gray-800 shadow-2xl">
+                    <h3 className="text-sm font-black flex items-center gap-2 uppercase text-white mb-8 tracking-widest"><TrendingUp className="w-5 h-5 text-indigo-500" /> Recent Transactions</h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-gray-950/50 text-[9px] text-gray-600 uppercase font-black border-b border-gray-800">
+                                <tr>
+                                    <th className="p-4 tracking-widest">Reference</th>
+                                    <th className="p-4 tracking-widest">Amount</th>
+                                    <th className="p-4 tracking-widest">Status</th>
+                                    <th className="p-4 text-right tracking-widest">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-800/30">
+                                {metrics.recentPayments?.map((p: any) => (
+                                    <tr key={p.id} className="hover:bg-indigo-500/[0.03] transition-all">
+                                        <td className="p-4">
+                                            <p className="text-white font-bold text-xs">{p.transactionRef || 'N/A'}</p>
+                                            <p className="text-[8px] font-black opacity-40 uppercase tracking-tighter">{p.phoneNumber || 'NO PHONE'}</p>
+                                        </td>
+                                        <td className="p-4 text-emerald-400 font-black">KES {p.amount}</td>
+                                        <td className="p-4">
+                                            <span className={`px-2 py-0.5 rounded-[4px] text-[8px] font-black uppercase ${p.status === 'active' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                                                {p.status}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-right">
+                                            <button
+                                              onClick={() => handleResendVoucherByRef(p.transactionRef, p.phoneNumber)}
+                                              className="text-[9px] font-black uppercase text-indigo-400 hover:text-white"
+                                            >
+                                                Resend
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {(!metrics.recentPayments || metrics.recentPayments.length === 0) && <tr><td colSpan={4} className="p-12 text-center text-gray-700 italic font-black uppercase tracking-[0.2em] text-[9px]">No recent payments</td></tr>}
                             </tbody>
                         </table>
                     </div>
@@ -699,7 +935,7 @@ export default function AdminDashboard() {
                         {generatedBatch.map((v, i) => (
                             <div key={i} className="border-2 border-dashed border-indigo-100 p-5 text-center rounded-2xl text-black voucher-card relative overflow-hidden bg-white">
                                 <div className="absolute top-0 right-0 p-1 bg-indigo-600 text-white text-[5px] font-black uppercase rounded-bl-lg">ORIGINAL</div>
-                                <p className="text-[8px] font-black text-indigo-600 uppercase tracking-widest mb-1">FULIFI.WIFI</p>
+                                <p className="text-[8px] font-black text-indigo-600 uppercase tracking-widest mb-1">STARLINKNET.WIFI</p>
                                 <div className="w-8 h-8 bg-indigo-50/50 rounded-full mx-auto mb-2 flex items-center justify-center">
                                   <Wifi className="w-3 h-3 text-indigo-300" />
                                 </div>

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getMikrotikConfig } from '@/lib/mikrotik';
-import { testLegacyConnection } from '@/lib/mikrotik-legacy';
+import { getMikrotikConfig, testMikrotikConnection } from '@/lib/mikrotik';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -9,38 +8,24 @@ export async function GET(request: Request) {
   try {
     const config = await getMikrotikConfig(siteId);
 
-    console.log(`[Diagnostic] Testing legacy connection to ${config.host} (Port 8728)`);
+    console.log(`[Diagnostic] Testing connection to ${config.host}:${config.port}`);
 
-    const result = await testLegacyConnection(siteId);
+    const result = await testMikrotikConnection(siteId);
 
-    if (result.success) {
-      return NextResponse.json({
-        success: true,
-        message: result.message,
-        routerName: result.name,
-        configUsed: {
-          host: config.host,
-          port: config.port,
-          user: config.username,
-          mode: config.port === 80 || config.port === 443 ? 'REST_API' : 'LEGACY_API'
-        }
-      });
-    } else {
-      return NextResponse.json({
-        success: false,
-        message: result.message,
-        error: result.error,
-        configUsed: {
-          host: config.host,
-          port: config.port,
-          user: config.username,
-          mode: config.port === 80 || config.port === 443 ? 'REST_API' : 'LEGACY_API'
-        },
-        tip: config.port === 80 || config.port === 443
-          ? "Check if 'www' service (Port 80) is enabled in WinBox (IP > Services)."
-          : "Check if 'api' service (Port 8728) is enabled in WinBox (IP > Services)."
-      });
-    }
+    return NextResponse.json({
+      success: result.success,
+      message: result.message,
+      error: result.error || 'None',
+      configUsed: {
+        host: config.host,
+        port: config.port,
+        user: config.username,
+        mode: config.port === 80 || config.port === 443 ? 'REST_API' : 'LEGACY_API'
+      },
+      tip: config.port === 80 || config.port === 443
+        ? "Check if 'www' service (Port 80) is enabled in WinBox (IP > Services)."
+        : "Check if 'api' service (Port 8728) is enabled in WinBox (IP > Services)."
+    });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     // Paystack expects amount in Kobo (or cents) but for KES it's usually just the amount * 100
     const amountInMinorUnits = Math.round(price * 100);
 
-    const callbackUrl = new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://fulifi-rr9u.vercel.app');
+    const callbackUrl = new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://starlinknet.wifi');
     if (mac) callbackUrl.searchParams.set('mac', mac);
     if (ip) callbackUrl.searchParams.set('ip', ip);
     if (siteId) callbackUrl.searchParams.set('siteId', siteId);
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        email: email || `customer_${Date.now()}@fulifi.com`,
+        email: email || `customer_${Date.now()}@starlinknet.wifi`,
         amount: amountInMinorUnits,
         currency: "KES",
         metadata: {

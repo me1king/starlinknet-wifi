@@ -6,7 +6,8 @@ import {
     testLegacyConnection,
     terminateLegacySession,
     getLegacyResources,
-    addLegacyVoucherTime
+    addLegacyVoucherTime,
+    checkLegacyUserExists
 } from './mikrotik-legacy';
 
 interface MikrotikConfig {
@@ -25,48 +26,35 @@ interface VoucherCreationResult {
 }
 
 async function getMikrotikConfig(siteId?: string): Promise<MikrotikConfig> {
-  let config: MikrotikConfig;
+  // 1. Start with values from .env.local (The Source of Truth)
+  let config: MikrotikConfig = {
+    host: process.env.MIKROTIK_HOST || '192.168.150.2',
+    port: parseInt(process.env.MIKROTIK_PORT || '80'),
+    username: process.env.MIKROTIK_USER || 'admin',
+    password: process.env.MIKROTIK_PASSWORD || '',
+    timeout: 15000,
+  };
 
+  // 2. If a specific site is requested, try to override with site-specific settings
   if (siteId && siteId !== 'default-site') {
-    const site = await prisma.site.findUnique({ where: { id: siteId } });
-    if (site && site.routerHost) {
-      const parts = site.routerHost.split(':');
-      const host = parts[0];
-      const port = parts[1] ? parseInt(parts[1]) : 8728;
-      config = {
-        host,
-        port,
-        username: site.routerUser || 'admin',
-        password: site.routerPass || '',
-        timeout: 15000
-      };
-    } else {
-      // Fallback if site found but no host
-      config = {
-        host: '10.5.50.1',
-        port: 80,
-        username: process.env.MIKROTIK_USER || 'admin',
-        password: process.env.MIKROTIK_PASSWORD || '',
-        timeout: 15000,
-      };
+    try {
+      const site = await prisma.site.findUnique({ where: { id: siteId } });
+      if (site && site.routerHost) {
+        const parts = site.routerHost.split(':');
+        config.host = parts[0];
+        if (parts[1]) config.port = parseInt(parts[1]);
+        if (site.routerUser) config.username = site.routerUser;
+        if (site.routerPass) config.password = site.routerPass;
+      }
+    } catch (e) {
+      console.warn(`[MikroTik Config] Could not fetch site ${siteId}, using defaults.`);
     }
-  } else {
-  // Default fallback to verified working router IP
-    config = {
-      host: '10.5.50.1',
-      port: 80,
-      username: process.env.MIKROTIK_USER || 'admin',
-      password: process.env.MIKROTIK_PASSWORD || '',
-      timeout: 20000,
-    };
   }
 
-  // Ensure default host if missing
-  if (!config.host || config.host === '192.168.88.1') {
-      config.host = '10.5.50.1';
-  }
+  // 3. Final safety check: if port is 8728 but we are on ROS 7+,
+  // we should encourage using 80, but we respect the config.
 
-  console.log(`[MikroTik Config] Using ${config.host}:${config.port} (User: ${config.username})`);
+  console.log(`[MikroTik Config] FINAL: ${config.host}:${config.port} (User: ${config.username})`);
   return config;
 }
 
@@ -157,12 +145,14 @@ async function createMikrotikVoucher(
   if (config.port === 80 || config.port === 443) {
       try {
           console.log(`[MikroTik REST] Creating voucher ${voucherCode} on site ${siteId || 'default'}`);
+
+          // FOR REST API, the path is /ip/hotspot/user
           const body: any = {
               name: voucherCode,
               password: voucherCode,
               profile: profileName,
               server: 'hotspot1',
-              comment: `Fulifi REST - ${new Date().toISOString()}`,
+              comment: `Starlinknet.WIFI REST - ${new Date().toISOString()}`,
               'rate-limit': finalRateLimit
           };
 
@@ -176,11 +166,28 @@ async function createMikrotikVoucher(
               body['limit-uptime'] = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
           }
 
-          await executeRestCommand('/ip/hotspot/user', 'POST', body, siteId);
+          // FIX: REST API path doesn't need /rest prefix here as executeRestCommand adds it,
+          // but we must ensure we use the correct resource path.
+          await executeRestCommand('/ip/hotspot/user', 'PUT', body, siteId);
           return { success: true, voucherCode, profileName };
       } catch (e: any) {
           console.error("[MikroTik REST] Voucher Creation Error:", e.message);
-          return { success: false, voucherCode, profileName, error: e.message };
+
+          // HEAL: If PUT fails, try POST (Some ROS versions prefer POST for creation)
+          try {
+              console.log("[MikroTik REST] Retrying with POST...");
+              const body: any = {
+                  name: voucherCode,
+                  password: voucherCode,
+                  profile: profileName,
+                  server: 'hotspot1',
+                  'rate-limit': finalRateLimit
+              };
+              await executeRestCommand('/ip/hotspot/user', 'POST', body, siteId);
+              return { success: true, voucherCode, profileName };
+          } catch (retryErr: any) {
+              return { success: false, voucherCode, profileName, error: retryErr.message };
+          }
       }
   }
 
@@ -362,6 +369,22 @@ async function activateHotspotSession(mac: string, ip: string, code: string, sit
   return { success: false, message: "Manual activation not implemented for Legacy API" };
 }
 
+async function checkMikrotikUserExists(voucherCode: string, siteId?: string): Promise<boolean> {
+  const config = await getMikrotikConfig(siteId);
+
+  if (config.port === 80 || config.port === 443) {
+      try {
+          const users = await executeRestCommand('/ip/hotspot/user', 'GET', undefined, siteId);
+          return users.some((u: any) => u.name === voucherCode);
+      } catch (e) { return false; }
+  }
+
+  return await checkLegacyUserExists(voucherCode, siteId);
+}
+
+// Ensure executeLegacyCommand is available for checkMikrotikUserExists if needed
+// or we can import it if it was exported. Let's just use the existing legacy functions.
+
 export {
   createMikrotikVoucher,
   testMikrotikConnection,
@@ -377,6 +400,7 @@ export {
   addVoucherTime,
   banMikrotikDevice,
   setTetheringBlock,
-  activateHotspotSession
+  activateHotspotSession,
+  checkMikrotikUserExists
 };
 export type { MikrotikConfig, VoucherCreationResult };
