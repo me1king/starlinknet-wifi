@@ -66,6 +66,8 @@ model Payment {
   idempotencyKey String?      @unique // Prevents double charging
   amount         Float
   phoneNumber    String?
+  macAddress     String?      // Added for auto-login logic
+  ipAddress      String?      // Added for auto-login logic
   voucherCode    String
   offerId        String?      // Link to the offer for itemized earnings
   offer          VoucherOffer? @relation(fields: [offerId], references: [id])

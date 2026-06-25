@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
     });
 
     // Group by device type
-    const byType = profiles.reduce((acc, p) => {
+    const byType = profiles.reduce((acc: Record<string, number>, p) => {
       const type = p.deviceType || 'Unknown';
       acc[type] = (acc[type] || 0) + 1;
       return acc;

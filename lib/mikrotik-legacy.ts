@@ -1,3 +1,4 @@
+// @ts-ignore
 import { Connection } from 'mikrotik';
 import { getMikrotikConfig } from './mikrotik';
 
@@ -14,7 +15,7 @@ export async function executeLegacyCommand(command: string[], siteId?: string): 
             timeout: 10
         });
 
-        conn.on('error', (err) => reject(err));
+        conn.on('error', (err: any) => reject(err));
 
         conn.connect((err: any, conn: any) => {
             if (err) {
@@ -170,15 +171,6 @@ export async function testLegacyConnection(siteId?: string) {
     } catch (e: any) {
         console.error("[MikroTik Legacy] Connection failed:", e.message || e);
         return { success: false, error: e.message || "Unknown Connection Error" };
-    }
-}
-
-export async function getLegacyTraffic(interfaceName: string = 'ether1', siteId?: string) {
-    try {
-        const data = await executeLegacyCommand(['/interface/monitor-traffic', `=interface=${interfaceName}`, '=once='], siteId);
-        return data[0] || null;
-    } catch (e) {
-        return null;
     }
 }
 

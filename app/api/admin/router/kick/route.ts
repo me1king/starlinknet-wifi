@@ -11,9 +11,9 @@ export async function POST(request: Request) {
     const result = await terminateMikrotikSession(username, siteId);
 
     if (result.success) {
-      return NextResponse.json({ success: true, message: result.message });
+      return NextResponse.json({ success: true, message: "User disconnected" });
     } else {
-      return NextResponse.json({ success: false, error: result.message }, { status: 500 });
+      return NextResponse.json({ success: false, error: result.error || "Failed to disconnect" }, { status: 500 });
     }
   } catch (error: unknown) {
     console.error("Kick User Error:", error);

@@ -147,7 +147,7 @@ export default function AdminDashboard() {
           name: sys.name || 'MikroTik'
         });
       } else {
-        setRouterInfo(prev => ({ ...prev, isOnline: false }));
+        setRouterInfo((prev: any) => ({ ...prev, isOnline: false }));
       }
     } catch (err) {
       console.error("Dashboard refresh error:", err);

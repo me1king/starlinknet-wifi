@@ -13,9 +13,9 @@ export async function POST(request: Request) {
     const result = await terminateMikrotikSession(username);
 
     if (result.success) {
-      return NextResponse.json({ success: true, message: result.message });
+      return NextResponse.json({ success: true, message: "User disconnected" });
     } else {
-      return NextResponse.json({ error: result.message }, { status: 404 });
+      return NextResponse.json({ error: result.error || "Failed to disconnect" }, { status: 404 });
     }
   } catch (error: any) {
     console.error("Kick Error:", error);

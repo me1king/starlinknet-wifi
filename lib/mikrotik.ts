@@ -298,7 +298,7 @@ async function getMikrotikResources(siteId?: string) {
               ...(Array.isArray(resources) ? resources[0] : resources),
               name: identity?.name || "MikroTik"
           };
-      } catch (e) {
+      } catch (e: any) {
           console.error(`[MikroTik REST] Resource fetch failed: ${e.message}`);
           return null;
       }
@@ -348,7 +348,7 @@ async function getMikrotikTraffic(siteId?: string, interfaceName: string = 'ethe
               once: true
           }, siteId);
           return Array.isArray(data) ? data[0] : data;
-      } catch (e) {
+      } catch (e: any) {
           console.error(`[MikroTik REST] Traffic fetch failed: ${e.message}`);
           return null;
       }
@@ -359,7 +359,31 @@ async function getMikrotikTraffic(siteId?: string, interfaceName: string = 'ethe
 
 // These are secondary/optional for now
 async function getMikrotikInterfaces(siteId?: string) { return []; }
-async function pingDeviceFromRouter(address: string, siteId?: string) { return { alive: false }; }
+async function pingDeviceFromRouter(address: string, siteId?: string): Promise<{ alive: boolean, avgRtt?: string }> {
+  const config = await getMikrotikConfig(siteId);
+
+  if (config.port === 80 || config.port === 443) {
+      try {
+          const result = await executeRestCommand('/ping', 'POST', {
+              address,
+              count: 3
+          }, siteId);
+          // REST API /ping returns an array of results
+          const successful = result.filter((r: any) => r.received > 0);
+          if (successful.length > 0) {
+              return {
+                  alive: true,
+                  avgRtt: successful[0]['avg-rtt'] || "20ms"
+              };
+          }
+          return { alive: false };
+      } catch (e) {
+          return { alive: false };
+      }
+  }
+
+  return { alive: false };
+}
 async function getMikrotikExport(siteId?: string) {
   const config = await getMikrotikConfig(siteId);
 
