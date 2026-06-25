@@ -1,24 +1,23 @@
 import { NextResponse } from 'next/server';
 import net from 'net';
 
-export async function GET(request: Request): Promise<NextResponse> {
+export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const host = searchParams.get('host') || process.env.MIKROTIK_HOST || '192.168.88.1';
-  const port = parseInt(searchParams.get('port') || '8728');
+  const host = searchParams.get('host') || process.env.MIKROTIK_HOST || '192.168.150.1';
+  const port = parseInt(searchParams.get('port') || '80');
 
-  return new Promise<NextResponse>((resolve) => {
+  return new Promise((resolve) => {
     const socket = new net.Socket();
-    const startTime = Date.now();
+    const start = Date.now();
 
-    socket.setTimeout(3000);
+    socket.setTimeout(5000);
 
     socket.on('connect', () => {
-      const duration = Date.now() - startTime;
+      const elapsed = Date.now() - start;
       socket.destroy();
       resolve(NextResponse.json({
         success: true,
-        message: `Port ${port} is OPEN on ${host}!`,
-        details: `Connection established in ${duration}ms. Your app can now talk to the router.`
+        message: `Port ${port} on ${host} is OPEN! Handshake took ${elapsed}ms.`
       }));
     });
 
@@ -26,21 +25,15 @@ export async function GET(request: Request): Promise<NextResponse> {
       socket.destroy();
       resolve(NextResponse.json({
         success: false,
-        message: `Port ${port} TIMEOUT on ${host}`,
-        error: "TIMEOUT",
-        tip: "This usually means a physical cable issue or a Firewall on the MikroTik is blocking your computer."
+        message: `Port ${port} on ${host} is CLOSED (Timeout). The router is blocking the laptop.`
       }));
     });
 
-    socket.on('error', (err: any) => {
+    socket.on('error', (err) => {
       socket.destroy();
       resolve(NextResponse.json({
         success: false,
-        message: `Port ${port} CLOSED on ${host}`,
-        error: err.code,
-        tip: err.code === 'ECONNREFUSED'
-          ? "The router is active but the 'api' service is DISABLED. Enable it in WinBox > IP > Services."
-          : "Check if the IP address is correct."
+        message: `Error connecting to ${host}:${port} -> ${err.message}`
       }));
     });
 

@@ -38,15 +38,6 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect root to admin login if no hotspot params are present
-  if (url.pathname === '/') {
-    const hasHotspotParams = url.searchParams.has('mac') || url.searchParams.has('siteId') || url.searchParams.has('reference');
-    if (!hasHotspotParams && !isAuthenticated) {
-      url.pathname = '/admin/login';
-      return NextResponse.redirect(url);
-    }
-  }
-
   return NextResponse.next();
 }
 
