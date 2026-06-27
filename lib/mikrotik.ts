@@ -9,6 +9,7 @@ import {
     getLegacyTraffic,
     addLegacyVoucherTime,
     checkLegacyUserExists,
+    executeLegacyCommand,
     setLegacyTetheringBlock
 } from './mikrotik-legacy';
 
@@ -28,26 +29,81 @@ interface VoucherCreationResult {
 }
 
 async function getMikrotikConfig(siteId?: string): Promise<MikrotikConfig> {
-  // 1. Default values from environment
+  // Source of Truth: environment variables
+  const envHost = (process.env.MIKROTIK_HOST || '10.5.50.1').replace(/https?:\/\//g, '').replace(/['"]+/g, '').trim();
+  const envPort = parseInt((process.env.MIKROTIK_PORT || '8728').replace(/['"]+/g, '').trim());
+
   let config: MikrotikConfig = {
-    host: process.env.MIKROTIK_HOST || '192.168.88.1',
-    port: parseInt(process.env.MIKROTIK_PORT || '8728'),
-    username: process.env.MIKROTIK_USER || 'admin',
-    password: process.env.MIKROTIK_PASSWORD || '',
+    host: envHost,
+    port: envPort,
+    username: (process.env.MIKROTIK_USER || 'admin').replace(/['"]+/g, '').trim(),
+    password: (process.env.MIKROTIK_PASSWORD || '').replace(/['"]+/g, '').trim(),
     timeout: 15000,
   };
 
-  // 2. Override with site-specific settings if available
   if (siteId && siteId !== 'default-site') {
-    const site = await prisma.site.findUnique({ where: { id: siteId } });
-    if (site && site.routerHost) {
-      config.host = site.routerHost;
-      config.username = site.routerUser || 'admin';
-      config.password = site.routerPass || '';
+    try {
+      const site = await prisma.site.findUnique({ where: { id: siteId } });
+      if (site && site.routerHost) {
+        const hostClean = site.routerHost.replace(/https?:\/\//g, '').replace(/['"]+/g, '').trim();
+        const parts = hostClean.split(':');
+        config.host = parts[0];
+        if (parts[1]) config.port = parseInt(parts[1]);
+        if (site.routerUser) config.username = site.routerUser.replace(/['"]+/g, '').trim();
+        if (site.routerPass) config.password = site.routerPass.replace(/['"]+/g, '').trim();
+      }
+    } catch (e) {
+      console.warn(`[MikroTik Config] Site ${siteId} fetch failed.`);
     }
   }
-
   return config;
+}
+
+/**
+ * Robust execution of commands.
+ * Automatically switches to Legacy API (8728) for non-standard ports (like ngrok TCP 16050).
+ */
+async function executeRestCommand(path: string, method: string = 'GET', body?: any, siteId?: string): Promise<any> {
+    const config = await getMikrotikConfig(siteId);
+
+    // SMART DETECT: If port is not 80/443, we assume it's a TCP tunnel like ngrok 16050
+    // In this case, we MUST use the Legacy API logic.
+    if (config.port !== 80 && config.port !== 443) {
+        throw new Error("TCP_TUNNEL_MODE_ACTIVE");
+    }
+
+    const protocol = config.port === 443 ? 'https' : 'http';
+    const url = `${protocol}://${config.host}:${config.port}/rest${path}`;
+    const auth = Buffer.from(`${config.username}:${config.password}`).toString('base64');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), config.timeout);
+
+    try {
+        const response = await fetch(url, {
+            method,
+            headers: {
+                'Authorization': `Basic ${auth}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: body ? JSON.stringify(body) : undefined,
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            if (response.status === 404) throw new Error("REST_NOT_FOUND");
+            const errorText = await response.text();
+            throw new Error(`REST Error (${response.status}): ${errorText}`);
+        }
+        return await response.json();
+    } catch (e: any) {
+        clearTimeout(timeoutId);
+        if (e.name === 'AbortError') throw new Error("REST_TIMEOUT");
+        throw e;
+    }
 }
 
 function getProfileName(packageId: string): string {
@@ -62,6 +118,7 @@ function getProfileName(packageId: string): string {
     'offer_night': '6-Hour-Pass',
     'offer_midnight_oil': 'Midnight-Oil-Pass',
     'offer_weekend': '48-Hour-Pass',
+    'offer_tv': 'Smart-TV-Pass'
   };
   return profileMap[packageId] || '1-Hour-Pass';
 }
@@ -78,67 +135,183 @@ async function createMikrotikVoucher(
   burstThreshold?: string,
   burstTime?: string,
   siteId?: string,
-  maxDevices: number = 1
+  maxDevices?: number
 ): Promise<VoucherCreationResult> {
   const profileName = getProfileName(packageId);
+  const config = await getMikrotikConfig(siteId);
 
-  // RUGGED REPAIR: Log full params to debug generation issues
-  console.log(`[MikroTik] Create: ${voucherCode} | Site: ${siteId || 'default'} | Profile: ${profileName}`);
+  const finalRateLimit = rateLimit || '5M/5M';
+  const finalBytesTotal = dataLimitMB ? dataLimitMB * 1024 * 1024 : 0;
+  const finalMaxDevices = maxDevices || 1;
 
-  const result = await createLegacyVoucher(voucherCode, profileName, siteId, durationMin, rateLimit, dataLimitMB, maxDevices);
+  try {
+      console.log(`[MikroTik] Creating voucher ${voucherCode} on port ${config.port}`);
 
-  if (result.success) return { success: true, voucherCode, profileName };
+      // REST API ATTEMPT
+      const restBody: any = {
+          name: voucherCode,
+          password: voucherCode,
+          profile: profileName,
+          server: 'hotspot1',
+          comment: `STARLINKNET REST - ${new Date().toISOString()}`,
+          'rate-limit': finalRateLimit,
+          'shared-users': String(finalMaxDevices)
+      };
 
-  // HEAL: If it fails with "already exists", we treat it as a success for the user flow
-  if (result.error?.toLowerCase().includes("already exists")) {
-    return { success: true, voucherCode, profileName };
+      if (finalBytesTotal > 0) restBody['limit-bytes-total'] = String(finalBytesTotal);
+      if (durationMin) {
+          const h = Math.floor(durationMin / 60);
+          const m = durationMin % 60;
+          restBody['limit-uptime'] = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`;
+      }
+
+      await executeRestCommand('/ip/hotspot/user', 'PUT', restBody, siteId);
+      return { success: true, voucherCode, profileName };
+
+  } catch (e: any) {
+      if (e.message === "REST_NOT_FOUND" || e.message === "TCP_TUNNEL_MODE_ACTIVE" || config.port !== 80) {
+          console.log("[MikroTik] Switching to Legacy API (TCP Tunnel Detected)...");
+          const result = await createLegacyVoucher(voucherCode, profileName, siteId, durationMin, finalRateLimit, dataLimitMB, finalMaxDevices);
+          if (result.success) return { success: true, voucherCode, profileName };
+          return { success: false, voucherCode, profileName, error: result.error };
+      }
+      return { success: false, voucherCode, profileName, error: e.message };
   }
-
-  return { success: false, voucherCode, profileName, error: result.error };
-}
-
-async function terminateMikrotikSession(voucherCode: string, siteId?: string) {
-  return await terminateLegacySession(voucherCode, siteId);
 }
 
 async function testMikrotikConnection(siteId?: string) {
-  const result = await testLegacyConnection(siteId);
-  if (result.success) return { success: true, message: `Connected to MikroTik: ${result.name}`, name: result.name };
-  return { success: false, message: `Legacy Connection Failed: ${result.error}`, error: result.error };
+  const config = await getMikrotikConfig(siteId);
+  try {
+      const data = await executeRestCommand('/system/identity', 'GET', undefined, siteId);
+      return { success: true, message: `Connected to MikroTik (REST): ${data.name}` };
+  } catch (e: any) {
+      if (e.message === "REST_NOT_FOUND" || e.message === "TCP_TUNNEL_MODE_ACTIVE" || config.port !== 80) {
+          const legacy = await testLegacyConnection(siteId);
+          if (legacy.success) return { success: true, message: `Connected to MikroTik (Legacy): ${legacy.name}` };
+          return { success: false, error: legacy.error, tip: "Check if ngrok TCP window is open and port is correct." };
+      }
+      return { success: false, error: e.message, tip: "Verify MIKROTIK_HOST matches ngrok URL." };
+  }
 }
 
 async function getMikrotikActiveSessions(siteId?: string) {
-  return await getLegacyActiveSessions(siteId);
+  try {
+      const data = await executeRestCommand('/ip/hotspot/active', 'GET', undefined, siteId);
+      return data.map((item: any) => ({
+          '.id': item['.id'],
+          user: item.user,
+          address: item.address,
+          uptime: item.uptime,
+          'mac-address': item['mac-address'],
+          'bytes-in': item['bytes-in'],
+          'bytes-out': item['bytes-out']
+      }));
+  } catch (e: any) {
+      return await getLegacyActiveSessions(siteId);
+  }
 }
 
 async function getMikrotikResources(siteId?: string) {
-  return await getLegacyResources(siteId);
+  try {
+      const [resources, identity] = await Promise.all([
+          executeRestCommand('/system/resource', 'GET', undefined, siteId),
+          executeRestCommand('/system/identity', 'GET', undefined, siteId)
+      ]);
+      return { ...(Array.isArray(resources) ? resources[0] : resources), name: identity?.name || "MikroTik" };
+  } catch (e: any) {
+      return await getLegacyResources(siteId);
+  }
+}
+
+async function terminateMikrotikSession(voucherCode: string, siteId?: string) {
+  try {
+      const active = await executeRestCommand('/ip/hotspot/active', 'GET', undefined, siteId);
+      const session = active.find((s: any) => s.user === voucherCode);
+      if (session) await executeRestCommand(`/ip/hotspot/active/${session['.id']}`, 'DELETE', undefined, siteId);
+      const users = await executeRestCommand('/ip/hotspot/user', 'GET', undefined, siteId);
+      const user = users.find((u: any) => u.name === voucherCode);
+      if (user) await executeRestCommand(`/ip/hotspot/user/${user['.id']}`, 'DELETE', undefined, siteId);
+      return { success: true };
+  } catch (e: any) {
+      return await terminateLegacySession(voucherCode, siteId);
+  }
 }
 
 async function addVoucherTime(voucherCode: string, minutes: number, siteId?: string) {
-  return await addLegacyVoucherTime(voucherCode, minutes, siteId);
+    try {
+        const users = await executeRestCommand('/ip/hotspot/user', 'GET', undefined, siteId);
+        const user = users.find((u: any) => u.name === voucherCode);
+        if (user) {
+            const currentLimit = user['limit-uptime'] || "00:00:00";
+            const parts = currentLimit.split(':').map(Number);
+            let totalSeconds = (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+            totalSeconds += (minutes * 60);
+            const h = Math.floor(totalSeconds / 3600);
+            const m = Math.floor((totalSeconds % 3600) / 60);
+            const s = totalSeconds % 60;
+            const newLimit = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            await executeRestCommand(`/ip/hotspot/user/${user['.id']}`, 'PATCH', { 'limit-uptime': newLimit }, siteId);
+            return { success: true };
+        }
+        return { success: false, error: "User not found" };
+    } catch (e: any) {
+        return await addLegacyVoucherTime(voucherCode, minutes, siteId);
+    }
 }
 
-async function getMikrotikTraffic(interfaceName: string = 'ether1', siteId?: string) {
-  return await getLegacyTraffic(interfaceName, siteId);
+async function getMikrotikTraffic(siteId?: string, interfaceName: string = 'ether1') {
+  try {
+      const data = await executeRestCommand('/interface/monitor-traffic', 'POST', { interface: interfaceName, once: true }, siteId);
+      return Array.isArray(data) ? data[0] : data;
+  } catch (e: any) {
+      return await getLegacyTraffic(interfaceName, siteId);
+  }
+}
+
+async function activateHotspotSession(mac: string, ip: string, code: string, siteId?: string) {
+  try {
+      const body = { user: code, 'mac-address': mac, address: ip, server: 'hotspot1' };
+      await executeRestCommand('/ip/hotspot/active', 'POST', body, siteId);
+      return { success: true, message: "Session activated via REST" };
+  } catch (e: any) {
+      return { success: false, message: e.message };
+  }
 }
 
 async function checkMikrotikUserExists(voucherCode: string, siteId?: string): Promise<boolean> {
-  return await checkLegacyUserExists(voucherCode, siteId);
+  try {
+      const users = await executeRestCommand('/ip/hotspot/user', 'GET', undefined, siteId);
+      return users.some((u: any) => u.name === voucherCode);
+  } catch (e) {
+      return await checkLegacyUserExists(voucherCode, siteId);
+  }
 }
 
-async function setTetheringBlock(enabled: boolean, siteId?: string): Promise<{ success: boolean; message: string }> {
-  const result = await setLegacyTetheringBlock(enabled, siteId);
-  return { success: result.success, message: result.success ? "Hardware updated" : result.error || "Failed" };
+async function pingDeviceFromRouter(address: string, siteId?: string): Promise<{ alive: boolean, avgRtt?: string }> {
+  try {
+      const result = await executeRestCommand('/ping', 'POST', { address, count: 3 }, siteId);
+      const successful = result.filter((r: any) => r.received > 0);
+      if (successful.length > 0) return { alive: true, avgRtt: successful[0]['avg-rtt'] || "20ms" };
+      return { alive: false };
+  } catch (e) {
+      try {
+          const legacyResult = await executeLegacyCommand(['/ping', `=address=${address}`, '=count=3'], siteId);
+          const received = legacyResult.filter((p: any) => p.received > 0 || p.status === 'received');
+          if (received.length > 0) return { alive: true, avgRtt: legacyResult[0]['avg-rtt'] || legacyResult[0].time };
+          return { alive: false };
+      } catch (le) { return { alive: false }; }
+  }
 }
 
-// Stubs for functions not yet ported to legacy
-async function getMikrotikInterfaces(siteId?: string) { return []; }
-async function pingDeviceFromRouter(address: string, siteId?: string): Promise<{ alive: boolean; avgRtt?: string }> { return { alive: false }; }
 async function getMikrotikExport(siteId?: string) { return null; }
 async function scanForRogueAPs(siteId?: string) { return []; }
-async function banMikrotikDevice(macAddress: string, voucherCode: string, siteId?: string) { return { success: false, message: "Not implemented in legacy" }; }
-async function activateHotspotSession(mac: string, ip: string, code: string, siteId?: string) { return { success: false, message: "Manual activation not implemented in legacy" }; }
+async function banMikrotikDevice(macAddress: string, voucherCode: string, siteId?: string) { return { success: false, message: "Not implemented" }; }
+async function setTetheringBlock(enabled: boolean, siteId?: string) {
+    try {
+        const res = await setLegacyTetheringBlock(enabled, siteId);
+        return res;
+    } catch (e) { return { success: false, message: "Failed to set TTL rule" }; }
+}
 
 export {
   createMikrotikVoucher,
@@ -148,15 +321,14 @@ export {
   getProfileName,
   getMikrotikActiveSessions,
   getMikrotikResources,
-  getMikrotikInterfaces,
-  pingDeviceFromRouter,
-  getMikrotikExport,
-  scanForRogueAPs,
   addVoucherTime,
   getMikrotikTraffic,
   checkMikrotikUserExists,
+  activateHotspotSession,
+  pingDeviceFromRouter,
+  getMikrotikExport,
+  scanForRogueAPs,
   banMikrotikDevice,
-  setTetheringBlock,
-  activateHotspotSession
+  setTetheringBlock
 };
 export type { MikrotikConfig, VoucherCreationResult };
