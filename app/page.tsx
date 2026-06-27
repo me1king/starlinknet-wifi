@@ -115,23 +115,6 @@ export default function PayPage() {
     // 4. Fetch Plans
     const fetchPlans = async () => {
       try {
-        // Log Portal Hit for Analytics
-        const ua = navigator.userAgent;
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(ua);
-        const deviceType = isMobile ? "MOBILE" : "PC";
-
-        fetch('/api/device-connection', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                macAddress: urlMac || "VISITOR",
-                ipAddress: urlIp || "0.0.0.0",
-                deviceName: `${deviceType} - ${ua.split(')')[0].split('(')[1] || 'Guest'}`,
-                status: 'PORTAL_HIT',
-                siteId: urlSiteId
-            })
-        }).catch(() => {});
-
         const res = await fetch(`/api/admin/offers?siteId=${urlSiteId}`, {
           headers: {
             'ngrok-skip-browser-warning': 'true',
@@ -404,17 +387,17 @@ export default function PayPage() {
   };
 
   return (
-    <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", backgroundColor: "#0a0c10", fontFamily: "system-ui, sans-serif" }}>
-      <div style={{ backgroundColor: "#0a0c10", padding: "32px", width: "100%", maxWidth: "480px", display: "flex", flexDirection: "column", minHeight: "100vh", boxShadow: "0 0 40px rgba(0,0,0,0.5)", position: "relative", color: "white" }}>
+    <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", backgroundColor: "#f9fafb", fontFamily: "system-ui, sans-serif" }}>
+      <div style={{ backgroundColor: "#ffffff", padding: "32px", width: "100%", maxWidth: "480px", display: "flex", flexDirection: "column", minHeight: "100vh", boxShadow: "0 0 40px rgba(0,0,0,0.03)", position: "relative" }}>
 
         {isSuccess ? (
           <div style={{ textAlign: "center", padding: "60px 20px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
-            <div style={{ backgroundColor: "#064e3b", padding: "24px", borderRadius: "50%", marginBottom: "24px" }}><CheckCircle2 style={{ color: "#10b981", width: "80px", height: "80px" }} /></div>
-            <h1 style={{ fontSize: "32px", fontWeight: "900", color: "#ffffff", marginBottom: "16px" }}>Payment Received!</h1>
-            <p style={{ color: "#94a3b8", fontSize: "18px", marginBottom: "32px" }}>Your internet is being activated...</p>
-            <div style={{ backgroundColor: "#11141b", padding: "20px", borderRadius: "16px", width: "100%", marginBottom: "20px", border: "1px solid #1f2937" }}>
+            <div style={{ backgroundColor: "#ecfdf5", padding: "24px", borderRadius: "50%", marginBottom: "24px" }}><CheckCircle2 style={{ color: "#10b981", width: "80px", height: "80px" }} /></div>
+            <h1 style={{ fontSize: "32px", fontWeight: "900", color: "#111827", marginBottom: "16px" }}>Payment Received!</h1>
+            <p style={{ color: "#4b5563", fontSize: "18px", marginBottom: "32px" }}>Your internet is being activated...</p>
+            <div style={{ backgroundColor: "#f3f4f6", padding: "20px", borderRadius: "16px", width: "100%", marginBottom: "20px" }}>
               <p style={{ fontSize: "12px", color: "#6b7280", fontWeight: "800", textTransform: "uppercase" }}>Your Voucher Code</p>
-              <div style={{ fontSize: "32px", fontWeight: "900", color: "#ffffff" }}>{purchasedVoucher}</div>
+              <div style={{ fontSize: "32px", fontWeight: "900", color: "#111827" }}>{purchasedVoucher}</div>
             </div>
 
             <div style={{ width: "100%", marginBottom: "20px" }}>
@@ -434,44 +417,44 @@ export default function PayPage() {
 
             <div style={{ width: "100%", marginBottom: "40px" }}>
                 {!showRefer ? (
-                    <button onClick={() => setShowRefer(true)} style={{ width: "100%", backgroundColor: "#11141b", color: "#4f46e5", padding: "14px", borderRadius: "12px", border: "1px solid #1f2937", fontWeight: "800", fontSize: "14px", cursor: "pointer", transition: "all 0.2s" }} className="hover-scale">
+                    <button onClick={() => setShowRefer(true)} style={{ width: "100%", backgroundColor: "#f5f3ff", color: "#4f46e5", padding: "14px", borderRadius: "12px", border: "1px solid #ddd6fe", fontWeight: "800", fontSize: "14px", cursor: "pointer", transition: "all 0.2s" }} className="hover-scale">
                         🎁 Refer a friend & get 30 mins FREE
                     </button>
                 ) : (
-                    <form onSubmit={handleReferral} style={{ backgroundColor: "#11141b", padding: "16px", borderRadius: "16px", border: "1px solid #1f2937" }}>
-                        <p style={{ fontSize: "11px", color: "#94a3b8", fontWeight: "700", marginBottom: "12px" }}>Enter friend's phone number to get 30 mins added instantly!</p>
+                    <form onSubmit={handleReferral} style={{ backgroundColor: "#f9fafb", padding: "16px", borderRadius: "16px", border: "1px solid #e5e7eb" }}>
+                        <p style={{ fontSize: "11px", color: "#4b5563", fontWeight: "700", marginBottom: "12px" }}>Enter friend's phone number to get 30 mins added instantly!</p>
                         <div style={{ display: "flex", gap: "8px" }}>
-                            <input type="tel" placeholder="07XXXXXXXX" value={referPhone} onChange={e => setReferPhone(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #1f2937", fontSize: "13px", backgroundColor: "#0a0c10", color: "white" }} required />
+                            <input type="tel" placeholder="07XXXXXXXX" value={referPhone} onChange={e => setReferPhone(e.target.value)} style={{ flex: 1, padding: "10px", borderRadius: "8px", border: "1px solid #d1d5db", fontSize: "13px" }} required />
                             <button type="submit" style={{ backgroundColor: "#4f46e5", color: "white", padding: "12px 20px", borderRadius: "8px", border: "none", fontWeight: "800", fontSize: "14px", cursor: "pointer", transition: "all 0.2s" }} className="hover-scale">Get Gift</button>
                         </div>
                     </form>
                 )}
             </div>
-            <div className="spinner" style={{ width: "32px", height: "32px", border: "3px solid #1f2937", borderTop: "3px solid #10b981" }}></div>
+            <div className="spinner" style={{ width: "32px", height: "32px", border: "3px solid #f3f4f6", borderTop: "3px solid #10b981" }}></div>
           </div>
         ) : (
           <>
-            <h1 style={{ textAlign: "center", marginBottom: "8px", fontWeight: "900", color: "#ffffff", fontSize: "38px" }}>Starlinknet.<span style={{ color: "#4f46e5" }}>WIFI</span></h1>
+            <h1 style={{ textAlign: "center", marginBottom: "8px", fontWeight: "900", color: "#111827", fontSize: "38px" }}>Starlinknet.<span style={{ color: "#4f46e5" }}>WIFI</span></h1>
 
             {!mac && !isWaitingForPin && !status?.success && (
-                <div style={{ backgroundColor: "#78350f", border: "1px solid #92400e", padding: "16px", borderRadius: "12px", marginBottom: "24px", textAlign: "center" }}>
-                    <ShieldAlert style={{ color: "#fbbf24", width: "24px", height: "24px", margin: "0 auto 8px" }} />
-                    <p style={{ fontSize: "12px", color: "#fef3c7", fontWeight: "700" }}>Device ID missing. Please turn your Wi-Fi OFF and ON again.</p>
+                <div style={{ backgroundColor: "#fff7ed", border: "1px solid #ffedd5", padding: "16px", borderRadius: "12px", marginBottom: "24px", textAlign: "center" }}>
+                    <ShieldAlert style={{ color: "#f97316", width: "24px", height: "24px", margin: "0 auto 8px" }} />
+                    <p style={{ fontSize: "12px", color: "#9a3412", fontWeight: "700" }}>Device ID missing. Please turn your Wi-Fi OFF and ON again.</p>
                 </div>
             )}
 
             {systemBanner && (
-              <div style={{ backgroundColor: systemBanner.type === 'maintenance' ? '#450a0a' : '#1e1b4b', border: '1px solid #312e81', padding: '12px', borderRadius: '12px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ backgroundColor: systemBanner.type === 'maintenance' ? '#fef2f2' : '#f5f3ff', border: '1px solid #ddd6fe', padding: '12px', borderRadius: '12px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <Zap style={{ width: '16px', color: '#6366f1' }} />
-                <p style={{ fontSize: '12px', fontWeight: '700', color: '#818cf8', margin: 0 }}>{systemBanner.text}</p>
+                <p style={{ fontSize: '12px', fontWeight: '700', color: '#4338ca', margin: 0 }}>{systemBanner.text}</p>
               </div>
             )}
 
             {tunnelBlocked ? (
               <div style={{ textAlign: "center", padding: "40px 20px" }}>
                 <ShieldAlert style={{ color: "#f59e0b", width: "64px", height: "64px", margin: "0 auto 20px" }} />
-                <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#ffffff" }}>Connection Locked</h3>
-                <p style={{ color: "#94a3b8", fontSize: "14px", marginTop: "12px" }}>To see the plans, we need to unlock the secure connection.</p>
+                <h3 style={{ fontSize: "20px", fontWeight: "800", color: "#111827" }}>Connection Locked</h3>
+                <p style={{ color: "#6b7280", fontSize: "14px", marginTop: "12px" }}>To see the plans, we need to unlock the secure connection.</p>
                 <button
                   onClick={() => {
                     window.open('/api/admin/offers', '_blank');
@@ -482,17 +465,17 @@ export default function PayPage() {
                 >
                   Unlock Plans Now
                 </button>
-                <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "16px" }}>After clicking, a new tab will open. Close it and return here.</p>
+                <p style={{ fontSize: "11px", color: "#9ca3af", marginTop: "16px" }}>After clicking, a new tab will open. Close it and return here.</p>
               </div>
             ) : isWaitingForPin ? (
               <div style={{ textAlign: "center", padding: "40px 20px" }}>
                 <div className="spinner"></div>
-                <h3 style={{ marginTop: "24px", fontWeight: "800", color: "#ffffff" }}>Check Your Phone</h3>
-                <p style={{ color: "#94a3b8" }}>Enter M-Pesa PIN on your phone</p>
-                <div style={{ backgroundColor: "#11141b", padding: "20px", borderRadius: "16px", margin: "24px 0", border: "1px solid #1f2937" }}>
+                <h3 style={{ marginTop: "24px", fontWeight: "800", color: "#111827" }}>Check Your Phone</h3>
+                <p style={{ color: "#6b7280" }}>Enter M-Pesa PIN on your phone</p>
+                <div style={{ backgroundColor: "#f5f3ff", padding: "20px", borderRadius: "16px", margin: "24px 0" }}>
                   <div style={{ fontSize: "42px", fontWeight: "900", color: "#4f46e5" }}>00:{countdown.toString().padStart(2, '0')}</div>
                 </div>
-                <button onClick={handleManualCheck} style={{ width: "100%", backgroundColor: "#1f2937", color: "white", padding: "18px", borderRadius: "12px", fontWeight: "800", cursor: "pointer", marginBottom: "12px", transition: "all 0.2s" }} className="hover-scale">I already entered my PIN</button>
+                <button onClick={handleManualCheck} style={{ width: "100%", backgroundColor: "#111827", color: "white", padding: "18px", borderRadius: "12px", fontWeight: "800", cursor: "pointer", marginBottom: "12px", transition: "all 0.2s" }} className="hover-scale">I already entered my PIN</button>
                 <button
                   onClick={() => {
                     localStorage.removeItem('active_checkout_ref');
@@ -501,7 +484,7 @@ export default function PayPage() {
                     setActiveReference(null);
                     window.location.href = window.location.pathname;
                   }}
-                  style={{ width: "100%", backgroundColor: "transparent", color: "#94a3b8", padding: "14px", borderRadius: "12px", fontWeight: "700", cursor: "pointer", border: "1px solid #1f2937", transition: "all 0.2s" }}
+                  style={{ width: "100%", backgroundColor: "transparent", color: "#6b7280", padding: "14px", borderRadius: "12px", fontWeight: "700", cursor: "pointer", border: "1px solid #e5e7eb", transition: "all 0.2s" }}
                   className="hover-scale"
                 >
                   Cancel & Start Over
@@ -509,18 +492,18 @@ export default function PayPage() {
               </div>
             ) : (
               <>
-                <p style={{ textAlign: "center", color: "#94a3b8", fontSize: "14px", marginBottom: "32px" }}>Choose a plan and connect instantly</p>
+                <p style={{ textAlign: "center", color: "#6b7280", fontSize: "14px", marginBottom: "32px" }}>Choose a plan and connect instantly</p>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "12px" }}>
                   {fetching ? (
                     <div style={{ textAlign: "center" }}><div className="spinner" style={{ width: "24px", height: "24px", margin: "0 auto" }}></div></div>
                   ) : bundlePlans.filter(p => p.id !== 'offer_tv' && !p.name.toLowerCase().includes('tv')).map((plan) => (
-                    <div key={plan.id} onClick={() => setSelectedPlan(plan)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px", borderRadius: "14px", border: selectedPlan?.id === plan.id ? "2px solid #4f46e5" : "1px solid #1f2937", cursor: "pointer", backgroundColor: selectedPlan?.id === plan.id ? "#11141b" : "#0f172a" }}>
+                    <div key={plan.id} onClick={() => setSelectedPlan(plan)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px", borderRadius: "14px", border: selectedPlan?.id === plan.id ? "2px solid #4f46e5" : "1px solid #f3f4f6", cursor: "pointer", backgroundColor: selectedPlan?.id === plan.id ? "#f5f3ff" : "#fff" }}>
                       <div>
-                        <div style={{ fontWeight: "800", color: "#ffffff" }}>{plan.name}</div>
-                        <div style={{ fontSize: "12px", color: "#94a3b8" }}>{plan.duration} | High-speed</div>
+                        <div style={{ fontWeight: "800", color: "#1f2937" }}>{plan.name}</div>
+                        <div style={{ fontSize: "12px", color: "#6b7280" }}>{plan.duration} | High-speed</div>
                       </div>
-                      <div style={{ fontWeight: "900", color: "#ffffff" }}>{plan.price} KES</div>
+                      <div style={{ fontWeight: "900", color: "#111827" }}>{plan.price} KES</div>
                     </div>
                   ))}
                 </div>
@@ -537,9 +520,9 @@ export default function PayPage() {
                         alignItems: "center",
                         padding: "18px",
                         borderRadius: "14px",
-                        border: selectedPlan?.id === bundlePlans.find(p => p.id === 'offer_tv' || p.name.toLowerCase().includes('tv'))?.id ? "2px solid #4f46e5" : "1px solid #1f2937",
+                        border: selectedPlan?.id === bundlePlans.find(p => p.id === 'offer_tv' || p.name.toLowerCase().includes('tv'))?.id ? "2px solid #4f46e5" : "1px solid #f3f4f6",
                         cursor: "pointer",
-                        backgroundColor: selectedPlan?.id === bundlePlans.find(p => p.id === 'offer_tv' || p.name.toLowerCase().includes('tv'))?.id ? "#11141b" : "#0f172a",
+                        backgroundColor: selectedPlan?.id === bundlePlans.find(p => p.id === 'offer_tv' || p.name.toLowerCase().includes('tv'))?.id ? "#f5f3ff" : "#fff",
                         marginBottom: "32px",
                         position: "relative",
                         overflow: "hidden"
@@ -548,25 +531,25 @@ export default function PayPage() {
                         <div style={{ position: "absolute", top: "8px", right: "-38px", backgroundColor: "#ef4444", color: "white", padding: "2px 45px", fontSize: "8px", fontWeight: "950", transform: "rotate(45deg)", letterSpacing: "1px", zIndex: 10 }}>HOT</div>
 
                         <div>
-                            <div style={{ fontWeight: "800", color: "#ffffff" }}>{bundlePlans.find(p => p.id === 'offer_tv' || p.name.toLowerCase().includes('tv'))?.name}</div>
-                            <div style={{ fontSize: "12px", color: "#94a3b8" }}>{bundlePlans.find(p => p.id === 'offer_tv' || p.name.toLowerCase().includes('tv'))?.duration} | 4K Streaming</div>
+                            <div style={{ fontWeight: "800", color: "#1f2937" }}>{bundlePlans.find(p => p.id === 'offer_tv' || p.name.toLowerCase().includes('tv'))?.name}</div>
+                            <div style={{ fontSize: "12px", color: "#6b7280" }}>{bundlePlans.find(p => p.id === 'offer_tv' || p.name.toLowerCase().includes('tv'))?.duration} | 4K Streaming</div>
                         </div>
-                        <div style={{ fontWeight: "900", color: "#ffffff", paddingRight: "15px" }}>{bundlePlans.find(p => p.id === 'offer_tv' || p.name.toLowerCase().includes('tv'))?.price} KES</div>
+                        <div style={{ fontWeight: "900", color: "#111827", paddingRight: "15px" }}>{bundlePlans.find(p => p.id === 'offer_tv' || p.name.toLowerCase().includes('tv'))?.price} KES</div>
                     </div>
                 )}
 
                 <form onSubmit={handlePayment} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                    <label style={{ fontSize: "12px", color: "#94a3b8", fontWeight: "700", marginLeft: "4px" }}>Email for Receipt (Optional)</label>
-                    <input type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)} style={{ width: "100%", padding: "14px", borderRadius: "10px", border: "1px solid #1f2937", backgroundColor: "#0a0c10", color: "white" }} />
+                    <label style={{ fontSize: "12px", color: "#6b7280", fontWeight: "700", marginLeft: "4px" }}>Email for Receipt (Optional)</label>
+                    <input type="email" placeholder="your@email.com" value={email} onChange={e => setEmail(e.target.value)} style={{ width: "100%", padding: "14px", borderRadius: "10px", border: "1px solid #e5e7eb" }} />
                   </div>
 
                   <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                    <label style={{ fontSize: "12px", color: "#94a3b8", fontWeight: "700", marginLeft: "4px" }}>M-Pesa Phone Number</label>
-                    <input type="tel" required placeholder="07XXXXXXXX" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} style={{ width: "100%", padding: "14px", borderRadius: "10px", border: "1px solid #1f2937", backgroundColor: "#0a0c10", color: "white" }} />
+                    <label style={{ fontSize: "12px", color: "#6b7280", fontWeight: "700", marginLeft: "4px" }}>M-Pesa Phone Number</label>
+                    <input type="tel" required placeholder="07XXXXXXXX" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} style={{ width: "100%", padding: "14px", borderRadius: "10px", border: "1px solid #e5e7eb" }} />
                   </div>
 
-                  <button type="submit" disabled={loading} style={{ width: "100%", backgroundColor: loading ? "#1f2937" : "#4f46e5", color: "#ffffff", padding: "20px", borderRadius: "12px", fontWeight: "800", cursor: "pointer", marginTop: "10px", transition: "all 0.2s" }} className="hover-scale">
+                  <button type="submit" disabled={loading} style={{ width: "100%", backgroundColor: loading ? "#9ca3af" : "#111827", color: "#ffffff", padding: "20px", borderRadius: "12px", fontWeight: "800", cursor: "pointer", marginTop: "10px", transition: "all 0.2s" }} className="hover-scale">
                     {loading ? "Initializing..." : `Pay KES ${selectedPlan?.price || ''}`}
                   </button>
                 </form>
@@ -575,19 +558,19 @@ export default function PayPage() {
                     {!showRebind ? (
                         <button onClick={() => setShowRebind(true)} style={{ background: "none", border: "none", color: "#4f46e5", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>Already paid? Reconnect or Check Balance</button>
                     ) : (
-                        <div style={{ borderTop: "1px solid #1f2937", paddingTop: "20px" }}>
+                        <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: "20px" }}>
                             <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
-                                <input type="text" placeholder="Code or Phone" value={rebindValue} onChange={e => setRebindValue(e.target.value)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #1f2937", fontSize: "14px", backgroundColor: "#0a0c10", color: "white" }} />
-                                <button onClick={handleCheckStatus} disabled={checkingStatus} style={{ backgroundColor: "#1f2937", color: "white", padding: "12px 20px", borderRadius: "10px", border: "none", fontWeight: "700", fontSize: "14px", cursor: "pointer", transition: "all 0.2s" }} className="hover-scale">
+                                <input type="text" placeholder="Code or Phone" value={rebindValue} onChange={e => setRebindValue(e.target.value)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "14px" }} />
+                                <button onClick={handleCheckStatus} disabled={checkingStatus} style={{ backgroundColor: "#f3f4f6", color: "#111827", padding: "12px 20px", borderRadius: "10px", border: "none", fontWeight: "700", fontSize: "14px", cursor: "pointer", transition: "all 0.2s" }} className="hover-scale">
                                     {checkingStatus ? "..." : "Balance"}
                                 </button>
                             </div>
 
                             {statusInfo && (
-                                <div style={{ backgroundColor: "#11141b", padding: "12px", borderRadius: "12px", marginBottom: "16px", textAlign: "left", border: "1px solid #1f2937" }}>
+                                <div style={{ backgroundColor: "#f5f3ff", padding: "12px", borderRadius: "12px", marginBottom: "16px", textAlign: "left", border: "1px solid #ddd6fe" }}>
                                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
                                         <span style={{ fontSize: "11px", fontWeight: "800", color: "#6366f1", textTransform: "uppercase" }}>Plan</span>
-                                        <span style={{ fontSize: "11px", fontWeight: "800", color: "#ffffff" }}>{statusInfo.packageName}</span>
+                                        <span style={{ fontSize: "11px", fontWeight: "800", color: "#111827" }}>{statusInfo.packageName}</span>
                                     </div>
                                     <div style={{ display: "flex", justifyContent: "space-between" }}>
                                         <span style={{ fontSize: "11px", fontWeight: "800", color: "#6366f1", textTransform: "uppercase" }}>Remaining</span>
@@ -605,7 +588,7 @@ export default function PayPage() {
                                 {loading ? "Reconnecting..." : "Reconnect This Device"}
                             </button>
 
-                            <button onClick={() => { setShowRebind(false); setStatusInfo(null); }} style={{ marginTop: "12px", background: "none", border: "none", color: "#6b7280", fontSize: "11px", fontWeight: "700", cursor: "pointer" }}>Cancel</button>
+                            <button onClick={() => { setShowRebind(false); setStatusInfo(null); }} style={{ marginTop: "12px", background: "none", border: "none", color: "#9ca3af", fontSize: "11px", fontWeight: "700", cursor: "pointer" }}>Cancel</button>
                         </div>
                     )}
                 </div>
@@ -615,7 +598,7 @@ export default function PayPage() {
         )}
 
         {status && (
-          <div style={{ marginTop: "24px", padding: "14px", borderRadius: "10px", textAlign: "center", fontSize: "14px", fontWeight: "600", backgroundColor: status.success ? "#064e3b" : "#450a0a", color: status.success ? "#10b981" : "#f87171", border: "1px solid currentcolor" }}>
+          <div style={{ marginTop: "24px", padding: "14px", borderRadius: "10px", textAlign: "center", fontSize: "14px", fontWeight: "600", backgroundColor: status.success ? "#ecfdf5" : "#fef2f2", color: status.success ? "#059669" : "#dc2626" }}>
             {status.message}
           </div>
         )}
@@ -625,14 +608,14 @@ export default function PayPage() {
             <div style={{ marginBottom: "24px" }}>
               <button
                 onClick={handleFreeTrial}
-                style={{ width: "100%", backgroundColor: "#11141b", color: "#94a3b8", padding: "16px", borderRadius: "12px", border: "1px dashed #1f2937", fontWeight: "700", fontSize: "14px", cursor: "pointer", transition: "all 0.2s" }}
+                style={{ width: "100%", backgroundColor: "#f9fafb", color: "#6b7280", padding: "16px", borderRadius: "12px", border: "1px dashed #d1d5db", fontWeight: "700", fontSize: "14px", cursor: "pointer", transition: "all 0.2s" }}
                 className="hover-scale"
               >
                 🎁 Try 10 Minutes for Free
               </button>
             </div>
           )}
-          <div style={{ height: "1px", backgroundColor: "#1f2937", margin: "0 -32px" }} />
+          <div style={{ height: "1px", backgroundColor: "#f3f4f6", margin: "0 -32px" }} />
           <div style={{ marginTop: "32px", textAlign: "center" }}>
             <p style={{ fontSize: "13px", color: "#6b7280", marginBottom: "16px" }}>Need help with your connection?</p>
             <a href="tel:0769345599" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", backgroundColor: "#2563eb", color: "#ffffff", padding: "18px", borderRadius: "12px", textDecoration: "none", fontWeight: "800", transition: "all 0.2s" }} className="hover-scale">📞 Contact Customer Care</a>
