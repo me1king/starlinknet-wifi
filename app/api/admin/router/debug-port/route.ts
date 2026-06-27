@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import net from 'net';
 
-export async function GET(request: Request) {
+export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const host = searchParams.get('host') || process.env.MIKROTIK_HOST || '192.168.150.1';
   const port = parseInt(searchParams.get('port') || '80');
 
-  return new Promise((resolve) => {
+  return new Promise<NextResponse>((resolve) => {
     const socket = new net.Socket();
     const start = Date.now();
 

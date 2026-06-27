@@ -182,3 +182,29 @@ export async function getLegacyTraffic(interfaceName: string = 'ether1', siteId?
         return null;
     }
 }
+
+export async function setLegacyTetheringBlock(enabled: boolean, siteId?: string) {
+    try {
+        const comment = "BLOCK_TETHERING_AUTO";
+        const rules = await executeLegacyCommand(['/ip/firewall/mangle/print', `?comment=${comment}`], siteId);
+
+        if (enabled) {
+            if (rules.length === 0) {
+                await executeLegacyCommand([
+                    '/ip/firewall/mangle/add',
+                    '=chain=postrouting',
+                    '=action=change-ttl',
+                    '=new-ttl=set:1',
+                    `=comment=${comment}`
+                ], siteId);
+            }
+        } else {
+            for (const rule of rules) {
+                await executeLegacyCommand(['/ip/firewall/mangle/remove', `=.id=${rule['.id']}`], siteId);
+            }
+        }
+        return { success: true };
+    } catch (e: any) {
+        return { success: false, error: e.message };
+    }
+}

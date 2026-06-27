@@ -1,15 +1,26 @@
 import { NextResponse } from 'next/server';
 import { setTetheringBlock } from '@/lib/mikrotik';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: Request) {
   try {
-    const { blockTethering } = await request.json();
+    const { blockTethering, siteId } = await request.json();
 
     if (blockTethering === undefined) {
       return NextResponse.json({ error: "Missing setting" }, { status: 400 });
     }
 
-    const result = await setTetheringBlock(blockTethering);
+    const currentSiteId = siteId || 'default-site';
+
+    // 1. Update Database
+    await prisma.systemSetting.upsert({
+        where: { id: 'global' },
+        update: { blockTethering },
+        create: { id: 'global', blockTethering }
+    });
+
+    // 2. Update Router Hardware
+    const result = await setTetheringBlock(blockTethering, currentSiteId);
 
     if (result.success) {
       return NextResponse.json({ success: true, message: result.message });

@@ -63,6 +63,19 @@ async function processSuccessfulPayment(paymentData: any) {
 
     console.log(`[Paystack Webhook] 🎫 Generated Voucher: ${voucherCode} for ${packageName}`);
 
+    // 1.5 Ensure the site exists to satisfy foreign key constraints
+    const site = await prisma.site.findUnique({ where: { id: siteId } });
+    if (!site) {
+      console.log(`[Paystack Webhook] Creating missing site during payment: ${siteId}`);
+      await prisma.site.create({
+        data: {
+          id: siteId,
+          name: siteId === 'default-site' ? 'Main Operations' : siteId,
+          location: 'Auto-Provisioned'
+        }
+      });
+    }
+
     // 2. Database Operations
     try {
         await prisma.voucher.create({

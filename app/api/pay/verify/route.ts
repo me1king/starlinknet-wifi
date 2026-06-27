@@ -29,8 +29,9 @@ export async function GET(req: NextRequest) {
       }
 
       return NextResponse.json({
-        success: payment.status === 'active',
+        success: payment.status === 'active' || payment.voucherCode !== 'PENDING',
         voucherCode: payment.voucherCode,
+        provisioned: payment.provisioned,
         status: payment.status,
         message: message
       });

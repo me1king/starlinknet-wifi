@@ -93,7 +93,7 @@ export default function AdminDashboard() {
           isOnline: true
         });
       } else {
-        setRouterInfo(prev => ({ ...prev, isOnline: false }));
+        setRouterInfo((prev: any) => ({ ...prev, isOnline: false }));
       }
     } catch (err) {
       console.error("Dashboard refresh error:", err);
@@ -316,12 +316,16 @@ export default function AdminDashboard() {
         <div className="w-16 h-16 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
         <Zap className="w-6 h-6 text-indigo-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
       </div>
-      <div className="text-white text-sm font-black uppercase tracking-[0.3em] animate-pulse">FULIFI CLOUD SYNC</div>
+      <div className="text-white text-sm font-black uppercase tracking-[0.3em] animate-pulse">STARLINKNET CLOUD SYNC</div>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-[#0a0c10] text-gray-100 p-6 font-sans">
+      <style jsx global>{`
+        body { background-color: #0a0c10 !important; margin: 0; padding: 0; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+      `}</style>
       {/* HEADER SECTION */}
       <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print">
         <div className="flex items-center gap-5">
@@ -329,7 +333,7 @@ export default function AdminDashboard() {
             <LayoutDashboard className="w-8 h-8 text-white" />
           </div>
           <div>
-            <h1 className="text-3xl font-black text-white uppercase tracking-tighter">FULIFI <span className="text-indigo-500">OPERATOR</span></h1>
+            <h1 className="text-3xl font-black text-white uppercase tracking-tighter">STARLINKNET <span className="text-indigo-500">OPERATOR</span></h1>
             <div className="flex items-center gap-3 mt-1">
                 <select
                   value={selectedSite}
@@ -358,7 +362,7 @@ export default function AdminDashboard() {
                     alert(`${data.success ? '✅' : '❌'} ${data.message}\n\nHost: ${data.configUsed?.host || 'N/A'}\nError: ${data.error || 'None'}\nTip: ${data.tip || 'Check your router settings.'}`);
 
                     if (!data.success) {
-                        const portRes = await fetch(`/api/admin/router/debug-port?host=${data.configUsed?.host}`);
+                        const portRes = await fetch(`/api/admin/router/debug-port?host=${data.configUsed?.host}&port=${data.configUsed?.port || 8728}`);
                         const portData = await portRes.json();
                         alert(`🔍 Port Diagnostic Results:\n\n${portData.message}\n\nTip: ${portData.tip || ''}`);
                     }
@@ -469,19 +473,44 @@ export default function AdminDashboard() {
                 offers.map((offer) => (
                   <div key={offer.id} className="p-4 border border-gray-800 rounded-2xl bg-gray-900/40 shadow-sm flex flex-col justify-between group hover:border-indigo-500/30 transition-all">
                     <div>
-                      <h4 className="font-bold text-lg text-gray-200 group-hover:text-indigo-400 transition-colors">{offer.name}</h4>
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-bold text-lg text-gray-200 group-hover:text-indigo-400 transition-colors">{offer.name}</h4>
+                        {!offer.isSystem && (
+                          <button
+                            onClick={() => {
+                              setFormData({
+                                id: offer.id,
+                                name: offer.name,
+                                durationMin: offer.durationMin.toString(),
+                                price: offer.price.toString(),
+                                download_limit: offer.downloadLimit || offer.download_limit || '5M',
+                                upload_limit: offer.uploadLimit || offer.upload_limit || '5M',
+                                data_limit_mb: offer.dataLimitMB?.toString() || '',
+                                max_devices: offer.maxDevices?.toString() || offer.max_devices?.toString() || '1'
+                              });
+                              window.scrollTo({ top: document.getElementById('package-form')?.offsetTop || 500, behavior: 'smooth' });
+                            }}
+                            className="p-1.5 hover:bg-indigo-600/20 text-indigo-400 rounded-lg transition-all"
+                            title="Edit Package"
+                          >
+                            <Settings className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                       <p className="text-sm text-gray-500">Duration: {offer.duration}</p>
                       <p className="text-xl font-extrabold text-emerald-400 mt-2">KSh {offer.price}</p>
                       <p className="text-xs text-gray-500 mt-1 uppercase font-black tracking-tighter">🚀 Speed: {offer.downloadLimit || offer.download_limit} Down / {offer.uploadLimit || offer.upload_limit} Up</p>
                     </div>
 
                     {!offer.isSystem ? (
-                      <button
-                        onClick={() => handleDeleteOffer(offer.id)}
-                        className="mt-4 w-full bg-red-950/20 text-red-500 hover:bg-red-600 hover:text-white transition-colors duration-150 py-2.5 rounded-xl text-[10px] font-black uppercase border border-red-500/10"
-                      >
-                        🗑️ Delete Package
-                      </button>
+                      <div className="flex gap-2 mt-4">
+                        <button
+                          onClick={() => handleDeleteOffer(offer.id)}
+                          className="flex-1 bg-red-950/20 text-red-500 hover:bg-red-600 hover:text-white transition-colors duration-150 py-2 rounded-xl text-[10px] font-black uppercase border border-red-500/10"
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
                     ) : (
                       <span className="mt-4 w-full bg-gray-950 text-gray-700 text-center py-2.5 rounded-xl text-[10px] font-black uppercase border border-gray-900">
                         🔒 System Protected
@@ -495,8 +524,11 @@ export default function AdminDashboard() {
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1 space-y-6">
-                <form onSubmit={handleCreateOffer} className="bg-[#11141b] p-6 rounded-3xl border border-gray-800 shadow-2xl relative overflow-hidden group text-xs">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-white mb-6 border-b border-gray-800 pb-3">Package Architect</h3>
+                <form id="package-form" onSubmit={handleCreateOffer} className="bg-[#11141b] p-6 rounded-3xl border border-gray-800 shadow-2xl relative overflow-hidden group text-xs">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-white mb-6 border-b border-gray-800 pb-3 flex justify-between items-center">
+                      {formData.id ? 'Edit Package' : 'Package Architect'}
+                      {formData.id && <button onClick={() => setFormData({ id: '', name: '', durationMin: '60', price: '', download_limit: '5M', upload_limit: '5M', data_limit_mb: '', max_devices: '1' })} className="text-[8px] text-gray-500 hover:text-white uppercase">Cancel</button>}
+                    </h3>
                     <div className="space-y-4">
                         <div className="space-y-1">
                             <label className="text-[8px] text-gray-600 uppercase font-black ml-1">Plan Display Name</label>
@@ -518,12 +550,37 @@ export default function AdminDashboard() {
                                 <option value="1">Solo Pass</option><option value="2">Duo Sharing</option><option value="5">Group/Office</option>
                             </select>
                         </div>
-                        <button type="submit" disabled={actionLoading} className="w-full bg-indigo-600 hover:bg-indigo-500 p-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-indigo-900/20 transition-all">COMMIT TO CLOUD</button>
+                        <button type="submit" disabled={actionLoading} className="w-full bg-indigo-600 hover:bg-indigo-500 p-4 rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-indigo-900/20 transition-all">
+                          {formData.id ? 'UPDATE PACKAGE' : 'COMMIT TO CLOUD'}
+                        </button>
                     </div>
                 </form>
 
                 <div className="bg-[#11141b] p-6 rounded-3xl border border-gray-800 shadow-xl">
-                    <h3 className="text-sm font-black uppercase text-white mb-6 flex items-center gap-2"><Zap className="w-4 h-4 text-amber-500" /> Network Broadcast</h3>
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-sm font-black uppercase text-white flex items-center gap-2"><Zap className="w-4 h-4 text-amber-500" /> Network Broadcast</h3>
+                        <div className="flex items-center gap-2">
+                            <p className="text-[8px] text-gray-500 font-black uppercase">Block Hotspot</p>
+                            <button
+                                onClick={async () => {
+                                    setActionLoading(true);
+                                    try {
+                                        const nextState = !systemSettings.blockTethering;
+                                        const res = await fetch('/api/admin/system/settings', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ blockTethering: nextState, siteId: selectedSite })
+                                        });
+                                        if (res.ok) setSystemSettings({ ...systemSettings, blockTethering: nextState });
+                                    } catch (e) {}
+                                    finally { setActionLoading(false); }
+                                }}
+                                className={`w-8 h-4 rounded-full relative transition-all ${systemSettings.blockTethering ? 'bg-indigo-600' : 'bg-gray-800 border border-gray-700'}`}
+                            >
+                                <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${systemSettings.blockTethering ? 'right-0.5' : 'left-0.5'}`} />
+                            </button>
+                        </div>
+                    </div>
                     <textarea className="w-full bg-gray-950 border border-gray-800 p-4 rounded-2xl text-xs text-white outline-none h-24 focus:border-amber-500 transition-all" placeholder="Enter urgent maintenance message..." value={systemSettings.bannerText} onChange={e => setSystemSettings({...systemSettings, bannerText: e.target.value})} />
                     <button onClick={handleUpdateSettings} disabled={actionLoading} className="w-full bg-amber-600 hover:bg-amber-500 mt-3 p-3.5 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-amber-900/10 transition-all">Publish Live</button>
                 </div>
@@ -606,7 +663,7 @@ export default function AdminDashboard() {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-8 bg-white rounded-3xl voucher-grid shadow-2xl">
                         {generatedBatch.map((v, i) => (
                             <div key={i} className="border-2 border-dashed border-gray-200 p-5 text-center rounded-2xl text-black voucher-card">
-                                <p className="text-[7px] font-black text-indigo-600 uppercase tracking-widest">FULIFI.WIFI</p>
+                                <p className="text-[7px] font-black text-indigo-600 uppercase tracking-widest">STARLINKNET.WIFI</p>
                                 <p className="text-xl font-mono font-black border-y border-gray-50 my-2 py-2 tracking-tighter">{v.code}</p>
                                 <p className="text-[8px] font-bold text-gray-400 uppercase">{v.packageName}</p>
                             </div>
