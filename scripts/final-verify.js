@@ -5,8 +5,18 @@ async function main() {
   console.log("--- FINAL PRODUCTION VERIFICATION ---");
 
   try {
-    const columns = await prisma.$queryRawUnsafe(`PRAGMA table_info(Payment);`);
-    const columnNames = columns.map(c => c.name);
+    let columnNames = [];
+    const isPostgres = process.env.DATABASE_URL.startsWith('postgresql');
+
+    if (isPostgres) {
+      const columns = await prisma.$queryRawUnsafe(`
+        SELECT column_name FROM information_schema.columns WHERE table_name = 'Payment';
+      `);
+      columnNames = columns.map(c => c.column_name);
+    } else {
+      const columns = await prisma.$queryRawUnsafe(`PRAGMA table_info(Payment);`);
+      columnNames = columns.map(c => c.name);
+    }
 
     console.log("Payment Table Columns:", columnNames.join(", "));
 
@@ -15,16 +25,7 @@ async function main() {
 
     if (missing.length > 0) {
       console.error("CRITICAL: Missing columns:", missing.join(", "));
-      console.log("Fixing now...");
-      for (const col of missing) {
-          try {
-              const type = col === 'provisioned' ? 'BOOLEAN DEFAULT 0' : 'TEXT';
-              await prisma.$executeRawUnsafe(`ALTER TABLE Payment ADD COLUMN ${col} ${type};`);
-              console.log(`Added column: ${col}`);
-          } catch (e) {
-              console.log(`Column ${col} might already exist or failed: ${e.message}`);
-          }
-      }
+      console.log("Please run 'npx prisma db push' to synchronize the schema.");
     } else {
       console.log("✅ Database schema is perfect.");
     }
@@ -39,7 +40,7 @@ async function main() {
     }
     console.log("✅ Default site verified.");
 
-    console.log("\n🚀 SYSTEM IS PRODUCTION READY!");
+    console.log("\n🚀 SYSTEM IS READY FOR CLOUD DEPLOYMENT!");
 
   } catch (error) {
     console.error("Verification failed:", error.message);
