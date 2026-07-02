@@ -4,55 +4,16 @@
     <meta charset="utf-8">
     <title>Starlinknet.WIFI - Redirecting</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <!-- Redirection to the stable Ngrok billing portal -->
-    <meta http-equiv="refresh" content="0; url=https://oil-cinnamon-starfish.ngrok-free.dev?mac=$(mac)&ip=$(ip)&siteId=$(identity)&link-login-only=$(link-login-only)&link-orig=$(link-orig)">
+    <!-- Redirection to the LIVE Vercel billing portal -->
+    <meta http-equiv="refresh" content="0; url=https://starlinknet-wifi-titp.vercel.app?mac=$(mac)&ip=$(ip)&siteId=$(identity)&link-login-only=$(link-login-only)&link-orig=$(link-orig)">
     <style>
-        body {
-            background: #0a0c10;
-            color: white;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-        }
-        .box {
-            text-align: center;
-            padding: 40px 30px;
-            background: #11141b;
-            border-radius: 32px;
-            border: 1px solid #1f2937;
-            box-shadow: 0 25px 60px rgba(0,0,0,0.4);
-            max-width: 360px;
-            width: 90%;
-        }
+        body { background: #0a0c10; color: white; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .box { text-align: center; padding: 40px 30px; background: #11141b; border-radius: 32px; border: 1px solid #1f2937; box-shadow: 0 25px 60px rgba(0,0,0,0.4); max-width: 360px; width: 90%; }
         h2 { font-size: 28px; font-weight: 900; margin-bottom: 12px; text-transform: uppercase; letter-spacing: -1px; }
-        .spinner {
-            border: 4px solid rgba(99, 102, 241, 0.1);
-            border-top: 4px solid #4f46e5;
-            border-radius: 50%;
-            width: 48px;
-            height: 48px;
-            animation: spin 1s linear infinite;
-            margin: 30px auto;
-        }
+        .spinner { border: 4px solid rgba(99, 102, 241, 0.1); border-top: 4px solid #4f46e5; border-radius: 50%; width: 48px; height: 48px; animation: spin 1s linear infinite; margin: 30px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         p { color: #9ca3af; font-size: 15px; line-height: 1.6; margin-bottom: 32px; font-weight: 500; }
-        .btn {
-            display: block;
-            background: #4f46e5;
-            color: white;
-            text-decoration: none;
-            padding: 18px 24px;
-            border-radius: 16px;
-            font-weight: 900;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            transition: all 0.3s;
-            box-shadow: 0 10px 20px rgba(79, 70, 229, 0.2);
-        }
+        .btn { display: block; background: #4f46e5; color: white; text-decoration: none; padding: 18px 24px; border-radius: 16px; font-weight: 900; font-size: 14px; text-transform: uppercase; letter-spacing: 1.5px; transition: all 0.3s; box-shadow: 0 10px 20px rgba(79, 70, 229, 0.2); }
         .btn:hover { background: #4338ca; transform: translateY(-2px); }
         .btn:active { transform: scale(0.96); }
     </style>
@@ -62,15 +23,10 @@
         <h2>STARLINKNET.<span style="color:#4f46e5">WIFI</span></h2>
         <div class="spinner"></div>
         <p>Syncing your device with our secure payment gateway. Please wait...</p>
-
-        <a href="https://oil-cinnamon-starfish.ngrok-free.dev?mac=$(mac)&ip=$(ip)&siteId=$(identity)&link-login-only=$(link-login-only)&link-orig=$(link-orig)" class="btn">
-            Open Portal Manually
-        </a>
+        <a href="https://starlinknet-wifi-titp.vercel.app?mac=$(mac)&ip=$(ip)&siteId=$(identity)&link-login-only=$(link-login-only)&link-orig=$(link-orig)" class="btn">Open Portal Manually</a>
     </div>
-
     <script>
-        // Automatic redirection script
-        var portalUrl = "https://oil-cinnamon-starfish.ngrok-free.dev?mac=$(mac)&ip=$(ip)&siteId=$(identity)&link-login-only=$(link-login-only)&link-orig=$(link-orig)";
+        var portalUrl = "https://starlinknet-wifi-titp.vercel.app?mac=$(mac)&ip=$(ip)&siteId=$(identity)&link-login-only=$(link-login-only)&link-orig=$(link-orig)";
         window.location.replace(portalUrl);
     </script>
 </body>
