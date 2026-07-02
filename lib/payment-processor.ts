@@ -1,6 +1,6 @@
 import { prisma } from './prisma';
 import { createMikrotikVoucher, activateHotspotSession } from './mikrotik';
-import { sendWhatsAppVoucher } from './whatsapp-service';
+import { sendVoucherToCustomer } from './whatsapp';
 import { WIFI_BILLING_CATALOG } from '@/app/config/packages';
 
 function generateVoucherCode(length = 8): string {
@@ -102,8 +102,8 @@ export async function processPaymentSuccess(reference: string, amount: number, m
       await activateHotspotSession(macAddress, ipAddress, voucherCode, siteId).catch(() => {});
     }
 
-    // Free WhatsApp Message
-    sendWhatsAppVoucher(String(phoneNumber), voucherCode, packageName).catch(() => {});
+    // WhatsApp Message via Green API
+    sendVoucherToCustomer(String(phoneNumber), voucherCode, packageName, amount).catch(() => {});
 
     return { success: true, voucherCode };
   } catch (error: any) {

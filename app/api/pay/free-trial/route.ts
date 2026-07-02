@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createMikrotikVoucher, activateHotspotSession } from '@/lib/mikrotik';
-import { sendWhatsAppVoucher } from '@/lib/whatsapp-service';
 
 export async function POST(req: NextRequest) {
   try {

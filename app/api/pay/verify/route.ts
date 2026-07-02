@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { processPaymentSuccess } from '@/lib/payment-processor';
 
-export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const maxDuration = 60; // Allow 60s for slow router responses
 
 export async function GET(req: NextRequest) {
   try {

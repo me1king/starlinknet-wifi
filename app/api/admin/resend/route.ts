@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { sendVoucherToCustomer } from '@/lib/whatsapp';
 
+export const runtime = 'nodejs';
+export const maxDuration = 30;
+
 export async function POST(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
