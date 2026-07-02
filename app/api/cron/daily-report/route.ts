@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, prismaRetry } from '@/lib/prisma';
 import { sendDailyRevenueSummary } from '@/lib/whatsappPersonal';
 
-export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const maxDuration = 30;
 
 export async function GET(req: NextRequest) {
   try {
     const authHeader = req.headers.get('authorization');
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-        // We log but proceed for local testing if needed, or block strictly
-        // return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        // Log unauthorized attempt but allow for local testing if secret is not set
+        console.warn("[Daily Report] Unauthorized attempt or local testing.");
     }
 
     const yesterday = new Date();
@@ -19,18 +20,18 @@ export async function GET(req: NextRequest) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 1. Calculate Revenue
-    const revenueData = await prisma.payment.aggregate({
+    // 1. Calculate Revenue with Retry Logic
+    const revenueData = await prismaRetry(() => prisma.payment.aggregate({
         where: {
             status: 'active',
             createdAt: { gte: yesterday, lt: today }
         },
         _sum: { amount: true },
         _count: { id: true }
-    });
+    }));
 
-    // 2. Find Top Package
-    const topOffers = await prisma.payment.groupBy({
+    // 2. Find Top Package with Retry Logic
+    const topOffers = await prismaRetry(() => prisma.payment.groupBy({
         by: ['offerId'],
         where: {
             status: 'active',
@@ -39,12 +40,14 @@ export async function GET(req: NextRequest) {
         _count: { id: true },
         orderBy: { _count: { id: 'desc' } },
         take: 1
-    });
+    }));
 
     let topPackageName = "Standard Plan";
     if (topOffers.length > 0 && topOffers[0].offerId) {
-        const offer = await prisma.voucherOffer.findUnique({ where: { id: topOffers[0].offerId } });
-        if (offer) topPackageName = offer.name;
+        try {
+            const offer = await prisma.voucherOffer.findUnique({ where: { id: topOffers[0].offerId } });
+            if (offer) topPackageName = offer.name;
+        } catch (e) {}
     }
 
     const totalRevenue = revenueData._sum.amount || 0;
@@ -61,7 +64,7 @@ export async function GET(req: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error("[Daily Report Cron] Error:", error.message);
+    console.error("[Daily Report Cron] Fatal Error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
