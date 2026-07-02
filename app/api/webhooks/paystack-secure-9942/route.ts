@@ -10,6 +10,7 @@ export async function POST(req: NextRequest) {
     const rawBody = await req.text();
     const paystackSignature = req.headers.get('x-paystack-signature');
 
+    // 1. Validate signature and secret
     const secret = (process.env.PAYSTACK_SECRET_KEY || "").replace(/['"]+/g, '').trim();
 
     if (!secret || !paystackSignature) {
