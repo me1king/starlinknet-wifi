@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   let ADMIN_SECRET = process.env.STARLINKNET_WIFI_ADMIN_SECRET || 'NJERI';
   // Strip quotes to avoid mismatch from .env file literals
   ADMIN_SECRET = ADMIN_SECRET.replace(/['"]+/g, '');

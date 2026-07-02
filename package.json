@@ -35,6 +35,6 @@
     "typescript": "^5.7.2"
   },
   "description": "Starlinknet.WIFI Hotspot Billing System",
-  "main": "scripts/whatsapp-bridge.js",
-  "type": "commonjs"
+  "main": "scripts/whatsapp-bridge.cjs",
+  "type": "module"
 }
