@@ -21,6 +21,15 @@ export default function PayPage() {
   const [activeReference, setActiveReference] = useState<string | null>(null);
   const [systemBanner, setSystemBanner] = useState<{ text: string, type: string } | null>(null);
 
+  // New Live Timer & Success Features
+  const [statusInfo, setStatusInfo] = useState<any>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [activeTimer, setActiveTimer] = useState<string | null>(null);
+  const [showTvConnect, setShowTvConnect] = useState(false);
+  const [tvMac, setTvMac] = useState("");
+  const [showRefer, setShowRefer] = useState(false);
+  const [referPhone, setReferPhone] = useState("");
+
   // Router variables
   const [mac, setMac] = useState("");
   const [ip, setIp] = useState("");
@@ -29,6 +38,7 @@ export default function PayPage() {
   const [linkOrig, setLinkOrig] = useState("");
 
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // 1. Capture Router Vars
@@ -41,7 +51,10 @@ export default function PayPage() {
     setIp(urlIp);
     setSiteId(urlSiteId);
 
-    if (urlMac) localStorage.setItem('last_mac', urlMac);
+    if (urlMac) {
+        localStorage.setItem('last_mac', urlMac);
+        checkActiveSession(urlMac, urlSiteId);
+    }
     if (urlIp) localStorage.setItem('last_ip', urlIp);
 
     setLinkLogin(params.get('link-login') || params.get('link-login-only') || "");
@@ -106,8 +119,39 @@ export default function PayPage() {
 
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     };
   }, []);
+
+  const checkActiveSession = async (id: string, sId: string) => {
+    try {
+        const res = await fetch(`/api/auth/status?id=${id}&siteId=${sId}`);
+        const data = await res.json();
+        if (data.active) {
+            setStatusInfo(data);
+            setActiveTimer(data.remaining);
+            startLiveTimer(id, sId);
+        }
+    } catch (e) {}
+  };
+
+  const startLiveTimer = (id: string, sId: string) => {
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    timerIntervalRef.current = setInterval(async () => {
+        try {
+            const res = await fetch(`/api/auth/status?id=${id}&siteId=${sId}`);
+            const data = await res.json();
+            if (data.active) {
+                setActiveTimer(data.remaining);
+                setStatusInfo(data);
+            } else {
+                setActiveTimer(null);
+                setStatusInfo(null);
+                if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+            }
+        } catch (e) {}
+    }, 10000);
+  };
 
   // Countdown timer
   useEffect(() => {
@@ -207,6 +251,69 @@ export default function PayPage() {
     check();
   };
 
+  const handleFreeTrial = async () => {
+    if (loading) return;
+    if (!mac) {
+        setStatus({ success: false, message: "⚠️ Device ID missing. Reconnect Wi-Fi to start trial." });
+        return;
+    }
+    setLoading(true); setStatus(null);
+    try {
+        const res = await fetch('/api/pay/free-trial', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mac, ip, siteId }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+            setPurchasedVoucher(data.voucherCode);
+            setStatus({ success: true, message: "Free trial activated! Connecting..." });
+            setTimeout(() => {
+                setIsSuccess(true);
+                loginRouter(data.voucherCode);
+            }, 1500);
+        } else {
+            setStatus({ success: false, message: data.error || "Trial limit reached." });
+        }
+    } catch (e) {
+        setStatus({ success: false, message: "Trial failed. Try later." });
+    } finally { setLoading(false); }
+  };
+
+  const handleTvConnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tvMac || !purchasedVoucher) return;
+    setLoading(true);
+    try {
+        const res = await fetch('/api/auth/connect-tv', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tvMac, voucherCode: purchasedVoucher, siteId }),
+        });
+        if (res.ok) {
+            alert("📺 TV Connected Successfully!");
+            setShowTvConnect(false);
+        }
+    } catch (e) {} finally { setLoading(false); }
+  };
+
+  const handleReferral = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!purchasedVoucher || !referPhone) return;
+    setLoading(true);
+    try {
+        const res = await fetch('/api/refer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ referrerVoucher: purchasedVoucher, referredPhone: referPhone }),
+        });
+        if (res.ok) {
+            alert("✅ Gift Sent! Your friend will get 30 minutes free.");
+            setShowRefer(false);
+        }
+    } catch (e) {} finally { setLoading(false); }
+  };
+
   const loginRouter = (code: string) => {
     if (linkLogin) {
       const form = document.createElement('form');
@@ -278,7 +385,42 @@ export default function PayPage() {
               <div style={{ fontSize: "32px", fontWeight: "900", color: "#111827", letterSpacing: "2px" }}>{purchasedVoucher}</div>
             </div>
 
-            <div className="spinner" style={{ width: "32px", height: "32px", border: "3px solid #f3f4f6", borderTop: "3px solid #10b981" }}></div>
+            {/* LIVE COUNTDOWN TIMER */}
+            {activeTimer && (
+              <div style={{ marginBottom: "32px", backgroundColor: "#111827", padding: "24px", borderRadius: "24px", width: "100%", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "8px" }}>
+                    <Clock size={14} color="#10b981" />
+                    <p style={{ fontSize: "11px", color: "#9ca3af", fontWeight: "800", textTransform: "uppercase", letterSpacing: "1px", margin: 0 }}>Session Active</p>
+                </div>
+                <div style={{ fontSize: "36px", fontWeight: "900", color: "#10b981", textAlign: "center" }}>{activeTimer}</div>
+                <div style={{ marginTop: "12px", paddingTop: "12px", borderTop: "1px solid rgba(255,255,255,0.1)", textAlign: "center" }}>
+                    <p style={{ fontSize: "11px", color: "#6b7280", fontWeight: "600", margin: 0 }}>Plan: {statusInfo?.packageName}</p>
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%" }}>
+                {!showTvConnect ? (
+                    <button onClick={() => setShowTvConnect(true)} style={{ width: "100%", backgroundColor: "#1e293b", color: "#fff", padding: "16px", borderRadius: "14px", border: "none", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}>📺 Connect a Smart TV</button>
+                ) : (
+                    <form onSubmit={handleTvConnect} style={{ backgroundColor: "#f8fafc", padding: "16px", borderRadius: "16px", border: "1px solid #e2e8f0", width: "100%" }}>
+                        <input type="text" placeholder="TV MAC Address" value={tvMac} onChange={e => setTvMac(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid #cbd5e1", marginBottom: "10px", outline: "none" }} required />
+                        <button type="submit" style={{ width: "100%", backgroundColor: "#334155", color: "white", padding: "12px", borderRadius: "10px", border: "none", fontWeight: "700" }}>Connect TV</button>
+                    </form>
+                )}
+                {!showRefer ? (
+                    <button onClick={() => setShowRefer(true)} style={{ width: "100%", backgroundColor: "#f5f3ff", color: "#6366f1", padding: "16px", borderRadius: "14px", border: "1px solid #e0e7ff", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}>🎁 Gift 30 mins to a Friend</button>
+                ) : (
+                    <form onSubmit={handleReferral} style={{ backgroundColor: "#f8fafc", padding: "16px", borderRadius: "16px", border: "1px solid #e2e8f0", width: "100%" }}>
+                        <div style={{ display: "flex", gap: "8px" }}>
+                            <input type="tel" placeholder="07XXXXXXXX" value={referPhone} onChange={e => setReferPhone(e.target.value)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "14px" }} required />
+                            <button type="submit" style={{ backgroundColor: "#6366f1", color: "white", padding: "12px 20px", borderRadius: "10px", border: "none", fontWeight: "700" }}>Send</button>
+                        </div>
+                    </form>
+                )}
+            </div>
+
+            <div className="spinner" style={{ width: "32px", height: "32px", border: "3px solid #f3f4f6", borderTop: "3px solid #10b981", marginTop: "32px" }}></div>
           </div>
         ) : (
           <>
@@ -332,6 +474,22 @@ export default function PayPage() {
             }}>
               <span style={{ fontSize: "12px" }}>●</span> LINK ACTIVE
             </div>
+
+            {/* LIVE COUNTDOWN TIMER (LANDING) */}
+            {activeTimer && (
+              <div style={{ marginBottom: "32px", backgroundColor: "#111827", padding: "20px", borderRadius: "20px", width: "100%", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                        <p style={{ fontSize: "9px", color: "#9ca3af", fontWeight: "800", textTransform: "uppercase", letterSpacing: "1px", margin: 0 }}>Remaining Time</p>
+                        <div style={{ fontSize: "24px", fontWeight: "900", color: "#10b981", marginTop: "2px" }}>{activeTimer}</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                        <p style={{ fontSize: "9px", color: "#6b7280", fontWeight: "600", textTransform: "uppercase", margin: 0 }}>Active Plan</p>
+                        <p style={{ fontSize: "12px", color: "#fff", fontWeight: "700", marginTop: "2px" }}>{statusInfo?.packageName}</p>
+                    </div>
+                </div>
+              </div>
+            )}
 
             {tunnelBlocked ? (
               <div style={{ textAlign: "center", padding: "40px 20px" }}>

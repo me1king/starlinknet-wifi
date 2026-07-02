@@ -29,3 +29,15 @@ Your local database is stored in `prisma/dev.db`.
 
 ## 📱 5. WhatsApp Notifications
 Notifications are sent via Green API. If they stop working, check your `GREEN_API_TOKEN` in `.env.local`.
+
+## ☁️ 6. Cloud Migration (Scaling Up)
+When you are ready to move your database to the cloud (so it stays on even if your laptop is off):
+1.  **Supabase**: Create a free project at [supabase.com](https://supabase.com).
+2.  **Environment**: Replace `DATABASE_URL` in `.env.local` with the one from Supabase.
+3.  **Sync**: Run `npx prisma db push` in your terminal.
+
+## 🔄 7. Router Maintenance
+To keep your MikroTik fast, set it to reboot automatically every week. Paste this in the terminal:
+```bash
+/system scheduler add name=AutoReboot interval=7d start-time=04:00:00 on-event="/system reboot"
+```
