@@ -7,7 +7,7 @@ const prismaClientSingleton = () => {
     // SQLite doesn't have a traditional pool like PG, but we can set busy timeout
   }).$extends({
     query: {
-      async $allOperations({ operation, model, args, query }) {
+      async $allOperations({ operation, model, args, query }: { operation: string; model: string; args: any; query: (args: any) => Promise<any> }) {
         const start = Date.now();
         try {
           return await query(args);

@@ -11,11 +11,11 @@ export async function GET(req: NextRequest) {
     // 1. Calculate Total Revenue
     let totalRevenue = 0;
     try {
-      const revenueSum = await prismaRetry(() => prisma.payment.aggregate({
+       const revenueSum = await prismaRetry(() => prisma.payment.aggregate({
         _sum: { amount: true },
         where: { siteId, status: 'active' }
-      }));
-      totalRevenue = revenueSum._sum.amount || 0;
+      })) as any;
+      totalRevenue = revenueSum?._sum?.amount || 0;
     } catch (e: any) {
       console.error("[Metrics] Revenue Aggregate Error:", e.message);
     }
