@@ -1,0 +1,11 @@
+android/
+app/build.gradle
+app/proguard-rules.pro
+app/src/
+build.gradle
+gradle/
+gradlew
+gradlew.bat
+local.properties
+settings.gradle
+variables.gradle
