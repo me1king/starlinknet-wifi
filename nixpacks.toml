@@ -1,11 +1,12 @@
-# FORCE NODE.JS - DISABLE GRADLE/ANDROID
+# FORCE NODE.JS - OPTIMIZED FOR PRODUCTION
 providers = ["node"]
 
 [phases.setup]
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["npm install"]
+# Increase timeout for slow networks and use 'ci' for stability
+cmds = ["npm config set network-timeout 300000", "npm ci --prefer-offline --no-audit"]
 
 [phases.build]
 cmds = ["npx prisma generate", "npm run build"]
