@@ -1,11 +1,10 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "buildCommand": "npx prisma generate && next build"
+    "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "bash scripts/start.sh",
+    "startCommand": "npx prisma migrate deploy && node scripts/whatsapp-bridge.cjs & next start -p ${PORT:-3000}",
     "restartPolicyType": "ON_FAILURE",
     "numReplicas": 1
   }
