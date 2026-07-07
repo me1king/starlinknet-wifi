@@ -1,15 +1,22 @@
-# FORCE NODE.JS - ROBUST CLOUD BUILD
+# PRODUCTION-GRADE CLOUD BUILD (SOLVES TIMEOUTS)
 providers = ["node"]
 
 [phases.setup]
-nixPkgs = ["nodejs_20"]
+# Include Chromium directly in the system to avoid massive NPM downloads
+nixPkgs = ["nodejs_20", "chromium", "glib", "nss", "nspr", "atk", "at-spi2-atk", "libdrm", "expat", "libxcb", "libxkbcommon", "mesa", "alsa-lib"]
 
 [phases.install]
-# Using standard install for maximum compatibility
-cmds = ["npm install --prefer-offline --no-audit --progress=false"]
+# SKIP MASSIVE DOWNLOADS: Tell Puppeteer not to download its own Chrome
+# This makes 'npm install' tiny and fast.
+cmds = ["PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install --prefer-offline --no-audit"]
 
 [phases.build]
 cmds = ["npx prisma generate", "npm run build"]
 
 [start]
 cmd = "bash scripts/start.sh"
+
+[variables]
+# Point Puppeteer to the system Chromium
+PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
