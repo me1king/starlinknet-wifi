@@ -1,22 +1,23 @@
-# PRODUCTION-GRADE CLOUD BUILD - FIXING NIX NAMES
+# PRODUCTION-GRADE CLOUD BUILD - FINAL STABILITY FIX
 providers = ["node"]
 
 [phases.setup]
-# Use correct Nix names and simplify to essentials
-nixPkgs = ["nodejs_20", "chromium"]
+# Include OpenSSL (required for Prisma) and Chromium for WhatsApp
+nixPkgs = ["nodejs_20", "chromium", "openssl"]
 
 [phases.install]
-# SKIP MASSIVE DOWNLOADS: Tell Puppeteer to use the system Chromium
+# Ensure clean install and skip massive browser downloads
 cmds = ["PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install --prefer-offline --no-audit"]
 
 [phases.build]
-cmds = ["npx prisma generate", "npm run build"]
+# Standard build command that handles Prisma automatically
+cmds = ["npm run build"]
 
 [start]
-# Ensure migrations run and then start everything
 cmd = "bash scripts/start.sh"
 
 [variables]
-# Explicitly point Puppeteer to the system Chromium path on Railway
 PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
+# Help Prisma find its engine
+PRISMA_SKIP_POSTINSTALL_GENERATE = "true"
