@@ -56,7 +56,7 @@ export default function AdminDashboard() {
   const fetchData = useCallback(async (isInitial = false) => {
     try {
       if (isInitial) setLoading(true);
-      const headers = { 'ngrok-skip-browser-warning': 'true', 'Bypass-Tunnel-Reminder': 'true' };
+      const headers = {};
 
       const safeFetch = async (url: string) => {
         try {
@@ -151,7 +151,6 @@ export default function AdminDashboard() {
     const fetchTraffic = async () => {
       try {
         const res = await fetch(`/api/admin/router/traffic?siteId=${selectedSite}`, {
-          headers: { 'ngrok-skip-browser-warning': 'true', 'Bypass-Tunnel-Reminder': 'true' },
           signal: AbortSignal.timeout(5000) // 5 second timeout for traffic
         });
         if (res.ok) {
@@ -202,7 +201,10 @@ export default function AdminDashboard() {
         alert("Γ£à Package Saved!");
         setFormData({ id: '', name: '', durationMin: '60', price: '', download_limit: '5M', upload_limit: '5M', data_limit_mb: '', max_devices: '1', expiry_mode: 'CONTINUOUS' });
         fetchData(false);
-      } else alert("Γ¥î Save failed.");
+      } else {
+        const data = await res.json();
+        alert(`Γ¥î Save failed: ${data.error || 'Unknown error'}`);
+      }
     } catch (err) { alert("Γ¥î Connection failed."); }
     finally { setActionLoading(false); }
   };

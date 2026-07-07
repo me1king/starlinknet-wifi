@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { addVoucherTime } from '@/lib/mikrotik';
+import { createMikrotikVoucher } from '@/lib/mikrotik';
+import { sendVoucherWhatsApp } from '@/lib/whatsapp-cloud';
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,25 +20,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid referral code" }, { status: 404 });
     }
 
-    // 2. Log the referral
+    // 2. Create a Gift Voucher for the friend
+    const giftCode = `GIFT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+    const giftResult = await createMikrotikVoucher(
+      giftCode,
+      '1hr', // Profile
+      30,    // 30 Mins
+      'CONTINUOUS',
+      undefined, // No MAC lock yet
+      '5M/5M',
+      undefined, undefined, undefined, undefined,
+      payment.siteId
+    );
+
+    if (!giftResult.success) {
+      return NextResponse.json({ error: "Failed to create gift voucher" }, { status: 500 });
+    }
+
+    // 3. Log the referral
     await prisma.referral.create({
       data: {
         referrerVoucher,
-        refereeMac: 'MANUAL-' + Date.now(),
-        rewardMinutes: 30
+        refereeMac: 'GIFT-' + giftCode,
+        rewardMinutes: 30,
+        status: 'REWARDED'
       }
     });
 
-    // 3. Instant Reward - Add 30 mins to the referrer
-    await addVoucherTime(referrerVoucher, 30, payment.siteId);
+    // 4. Notify the friend via Official Linked Phone (FREE Mode)
+    sendVoucherWhatsApp(referredPhone, giftCode, "Gift Voucher (30 Mins)");
 
-    // Update the payment expiry in DB
-    await prisma.payment.update({
-        where: { id: payment.id },
-        data: { expiresAt: new Date(payment.expiresAt.getTime() + (30 * 60000)) }
-    });
-
-    return NextResponse.json({ success: true, message: "Referral successful! 30 mins added to your session." });
+    return NextResponse.json({ success: true, message: "Gift Sent! Your friend will receive a 30-min voucher code." });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

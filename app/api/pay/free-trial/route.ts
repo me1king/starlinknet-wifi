@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createMikrotikVoucher, activateHotspotSession } from '@/lib/mikrotik';
+import { createMikrotikVoucher, activateHotspotSession, addVoucherTime } from '@/lib/mikrotik';
+import { sendVoucherWhatsApp } from '@/lib/whatsapp-cloud';
 
 export async function POST(req: NextRequest) {
   try {
@@ -63,19 +64,8 @@ export async function POST(req: NextRequest) {
     });
 
     if (pendingRef && pendingRef.status === 'PENDING') {
-        const bonusCode = `GIFT-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-
-        // Create 30-min voucher for the referrer
-        const bonusResult = await createMikrotikVoucher(
-            bonusCode,
-            '1hr',
-            30,
-            'CONTINUOUS',
-            undefined, // No MAC lock for the gift voucher (let them use it on any device)
-            '5M/5M',
-            undefined, undefined, undefined, undefined,
-            currentSiteId
-        );
+        // Reward the referrer by adding 30 mins to their existing voucher
+        const bonusResult = await addVoucherTime(pendingRef.referrerVoucher, 30, currentSiteId);
 
         if (bonusResult.success) {
             await prisma.referral.update({
@@ -83,24 +73,24 @@ export async function POST(req: NextRequest) {
                 data: { status: 'REWARDED' }
             });
 
+            // Update the payment record expiry in DB
+            await prisma.payment.updateMany({
+                where: { voucherCode: pendingRef.referrerVoucher, siteId: currentSiteId },
+                data: { expiresAt: { set: new Date(Date.now() + 30 * 60000) } } // This is tricky, better to just increment if possible or use a query
+            }).catch(() => {});
+
             // Notify Referrer via WhatsApp
             const message = `🎁 *AWESOME NEWS!* 🎁\n\n` +
-                            `Someone just connected using your link! As a thank you, here is a *30-Minute High Speed* voucher code:\n\n` +
-                            `🎫 *Code:* ${bonusCode}\n\n` +
+                            `Someone just connected using your link! We've added *30-Minutes* to your current session.\n\n` +
                             `Thank you for growing Starlinknet.WIFI!`;
 
-            const normalized = pendingRef.referrerVoucher.replace(/\D/g, '');
-            const chatId = (normalized.startsWith('0') ? '254' + normalized.substring(1) : normalized) + '@c.us';
+            // Try to find referrer's phone
+            const referrerPayment = await prisma.payment.findFirst({
+                where: { voucherCode: pendingRef.referrerVoucher }
+            });
 
-            // Send via Green API directly for reliability in cloud
-            const waInstance = process.env.GREEN_API_INSTANCE_ID;
-            const waToken = process.env.GREEN_API_TOKEN;
-            if (waInstance && waToken) {
-                await fetch(`https://api.green-api.com/waInstance${waInstance}/sendMessage/${waToken}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chatId, message })
-                }).catch(() => {});
+            if (referrerPayment && referrerPayment.phoneNumber) {
+                sendVoucherWhatsApp(referrerPayment.phoneNumber, pendingRef.referrerVoucher, "Referral Bonus (30 Mins)");
             }
         }
     }

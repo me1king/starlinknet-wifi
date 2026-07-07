@@ -54,6 +54,16 @@ export default function PayPage() {
     if (urlMac) {
         localStorage.setItem('last_mac', urlMac);
         checkActiveSession(urlMac, urlSiteId);
+
+        // Handle Referral Link
+        const referredBy = params.get('referredBy');
+        if (referredBy) {
+            fetch('/api/refer/link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ referrerVoucher: referredBy, refereeMac: urlMac, siteId: urlSiteId }),
+            }).catch(() => {});
+        }
     }
     if (urlIp) localStorage.setItem('last_ip', urlIp);
 
@@ -75,8 +85,6 @@ export default function PayPage() {
       try {
         const res = await fetch(`/api/admin/offers?siteId=${urlSiteId}`, {
           headers: {
-            'ngrok-skip-browser-warning': 'true',
-            'Bypass-Tunnel-Reminder': 'true',
             'Accept': 'application/json'
           }
         });
@@ -103,12 +111,7 @@ export default function PayPage() {
     // Fetch System Banner
     const fetchBanner = async () => {
       try {
-        const res = await fetch('/api/admin/settings', {
-          headers: {
-            'ngrok-skip-browser-warning': 'true',
-            'Bypass-Tunnel-Reminder': 'true'
-          }
-        });
+        const res = await fetch('/api/admin/settings');
         const data = await res.json();
         if (data && data.bannerText && data.bannerText.trim() !== "") {
           setSystemBanner({ text: data.bannerText, type: data.bannerType });
@@ -171,9 +174,7 @@ export default function PayPage() {
       const res = await fetch('/api/pay', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true',
-          'Bypass-Tunnel-Reminder': 'true'
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ phoneNumber, email, packageId: selectedPlan.id, mac, ip, siteId }),
       });
@@ -219,8 +220,6 @@ export default function PayPage() {
       try {
         const res = await fetch(`/api/pay/verify?reference=${ref}`, {
           headers: {
-            'ngrok-skip-browser-warning': 'true',
-            'Bypass-Tunnel-Reminder': 'true',
             'Accept': 'application/json'
           }
         });
@@ -585,6 +584,19 @@ export default function PayPage() {
                     boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)", transition: "all 0.2s"
                   }}>
                     {loading ? "Initializing..." : `Pay KES ${selectedPlan?.price || ''}`}
+                  </button>
+
+                  <div style={{ position: "relative", textAlign: "center", margin: "10px 0" }}>
+                    <div style={{ borderTop: "1px solid #e5e7eb", position: "absolute", top: "50%", width: "100%" }}></div>
+                    <span style={{ backgroundColor: "#ffffff", padding: "0 10px", color: "#9ca3af", fontSize: "12px", fontWeight: "600", position: "relative" }}>OR</span>
+                  </div>
+
+                  <button type="button" onClick={handleFreeTrial} disabled={loading} style={{
+                    width: "100%", backgroundColor: "#f0fdf4", color: "#16a34a", padding: "16px",
+                    borderRadius: "12px", border: "2px dashed #bbf7d0", fontSize: "15px", fontWeight: "700", cursor: "pointer",
+                    transition: "all 0.2s"
+                  }}>
+                    {loading ? "Please wait..." : "🎁 Get 10 Minutes FREE Trial"}
                   </button>
                 </form>
 

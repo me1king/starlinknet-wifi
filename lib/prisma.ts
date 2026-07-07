@@ -36,6 +36,12 @@ declare global {
 const getPrisma = () => {
   if (!globalThis.prismaGlobal) {
     globalThis.prismaGlobal = prismaClientSingleton()
+    // Auto-initialize Default Site
+    globalThis.prismaGlobal.site.upsert({
+      where: { id: 'default-site' },
+      update: {},
+      create: { id: 'default-site', name: 'Main Operations' }
+    }).catch(e => console.warn("[Prisma] Default site init failed (usually okay if DB not ready)"));
   }
   return globalThis.prismaGlobal
 }

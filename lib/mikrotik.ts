@@ -62,16 +62,9 @@ async function getMikrotikConfig(siteId?: string): Promise<MikrotikConfig> {
 
 /**
  * Robust execution of commands.
- * Automatically switches to Legacy API (8728) for non-standard ports (like ngrok TCP 16050).
  */
 async function executeRestCommand(path: string, method: string = 'GET', body?: any, siteId?: string): Promise<any> {
     const config = await getMikrotikConfig(siteId);
-
-    // SMART DETECT: If port is not 80/443, we assume it's a TCP tunnel like ngrok 16050
-    // In this case, we MUST use the Legacy API logic.
-    if (config.port !== 80 && config.port !== 443) {
-        throw new Error("TCP_TUNNEL_MODE_ACTIVE");
-    }
 
     const protocol = config.port === 443 ? 'https' : 'http';
     const url = `${protocol}://${config.host}:${config.port}/rest${path}`;
@@ -174,8 +167,8 @@ async function createMikrotikVoucher(
       return { success: true, voucherCode, profileName };
 
   } catch (e: any) {
-      if (e.message === "REST_NOT_FOUND" || e.message === "TCP_TUNNEL_MODE_ACTIVE" || config.port !== 80) {
-          console.log("[MikroTik] Switching to Legacy API (TCP Tunnel Detected)...");
+      if (e.message === "REST_NOT_FOUND" || config.port !== 80) {
+          console.log("[MikroTik] Switching to Legacy API...");
           const result = await createLegacyVoucher(voucherCode, profileName, siteId, durationMin, finalRateLimit, dataLimitMB, finalMaxDevices);
           if (result.success) return { success: true, voucherCode, profileName };
           return { success: false, voucherCode, profileName, error: result.error };
@@ -190,12 +183,12 @@ async function testMikrotikConnection(siteId?: string) {
       const data = await executeRestCommand('/system/identity', 'GET', undefined, siteId);
       return { success: true, message: `Connected to MikroTik (REST): ${data.name}` };
   } catch (e: any) {
-      if (e.message === "REST_NOT_FOUND" || e.message === "TCP_TUNNEL_MODE_ACTIVE" || config.port !== 80) {
+      if (e.message === "REST_NOT_FOUND" || config.port !== 80) {
           const legacy = await testLegacyConnection(siteId);
           if (legacy.success) return { success: true, message: `Connected to MikroTik (Legacy): ${legacy.name}` };
-          return { success: false, error: legacy.error, tip: "Check if ngrok TCP window is open and port is correct." };
+          return { success: false, error: legacy.error, tip: "Check if router API is accessible and port is correct." };
       }
-      return { success: false, error: e.message, tip: "Verify MIKROTIK_HOST matches ngrok URL." };
+      return { success: false, error: e.message, tip: "Verify MIKROTIK_HOST matches router IP." };
   }
 }
 
