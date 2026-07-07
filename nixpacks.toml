@@ -1,12 +1,12 @@
-# FORCE NODE.JS - OPTIMIZED FOR PRODUCTION
+# FORCE NODE.JS - ROBUST CLOUD BUILD
 providers = ["node"]
 
 [phases.setup]
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-# Increase timeout for slow networks and use 'ci' for stability
-cmds = ["npm config set network-timeout 300000", "npm ci --prefer-offline --no-audit"]
+# Using standard install for maximum compatibility
+cmds = ["npm install --prefer-offline --no-audit --progress=false"]
 
 [phases.build]
 cmds = ["npx prisma generate", "npm run build"]
