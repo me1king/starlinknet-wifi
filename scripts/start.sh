@@ -19,6 +19,6 @@ node scripts/whatsapp-bridge.cjs 2>&1 &
 # Give it a moment to output the QR
 sleep 5
 
-# 3. Start the Next.js Web Server in the foreground
+# 3. Start the Next.js Web Server using npx to ensure it's found
 echo "▲ Step 3: Starting Web Server..."
 exec npx next start -p ${PORT:-3000}
