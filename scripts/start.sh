@@ -12,16 +12,13 @@ echo "---------------------------------------------------------"
 echo "📦 Step 1: Database Sync..."
 npx prisma migrate deploy
 
-# 2. Start the WhatsApp Bridge (Foreground temporarily to force QR code visibility)
+# 2. Start the WhatsApp Bridge in the background
 echo "📡 Step 2: Starting WhatsApp Bridge..."
-echo "Wait for the QR Code below..."
-
-# We run the bridge in the background but redirect its output to the main log
 node scripts/whatsapp-bridge.cjs 2>&1 &
 
-# Give the bridge a moment to generate the QR code
+# Give it a moment to output the QR
 sleep 5
 
-# 3. Start the Next.js Web Server
+# 3. Start the Next.js Web Server in the foreground
 echo "▲ Step 3: Starting Web Server..."
-next start -p ${PORT:-3000}
+exec npx next start -p ${PORT:-3000}
