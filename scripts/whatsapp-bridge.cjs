@@ -12,7 +12,8 @@ const http = require('http');
 // Initialize the WhatsApp client
 const client = new Client({
     authStrategy: new LocalAuth({
-        clientId: "starlinknet-production"
+        clientId: "starlinknet-production",
+        dataPath: './.wwebjs_auth'
     }),
     puppeteer: {
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,

@@ -1,44 +1,59 @@
-# Official Cloud Setup Guide (Laptop Offline)
+# Professional Cloud Setup Guide (Hetzner VPS + Coolify)
 
-This guide explains how to set up Starlinknet.WIFI officially on **Railway.app** so you can turn off your laptop.
+This guide explains how to set up Starlinknet.WIFI on a **$4 Hetzner VPS** using **Coolify**. This replaces Vercel, Railway, and Ngrok, allowing you to turn off your laptop forever.
 
-## 1. Railway.app Hosting
-1.  Create an account on [Railway.app](https://railway.app).
-2.  Connect your GitHub repository.
-3.  Add all environment variables from your `.env.production` to the Railway "Variables" tab.
-4.  Railway will automatically build and deploy your app. Your new URL will be `https://starlinknet-wifi.up.railway.app`.
+## 1. Get your Server
+1.  Sign up at [Hetzner Cloud](https://www.hetzner.com/cloud).
+2.  Create a new "Project" and click **Add Server**.
+3.  **Location:** Choose the one closest to you.
+4.  **Image:** Ubuntu 24.04.
+5.  **Type:** Arm64 -> **CAX11** (Costs ~$4/month, has 4GB RAM which is perfect).
+6.  **SSH Keys:** Add your SSH key (or use a password if you must).
+7.  Click **Create & Buy Now**. Note your **Server IP**.
 
-## 2. WhatsApp "Free Mode" (Official Phone Link)
-We are using a background bridge that uses your own phone. It has **NO LIMITS** and is 100% free.
-
-**How to link:**
-1.  Once Railway deploys, open the **Deployment Logs** in the Railway dashboard.
-2.  Look for a large **QR Code** printed in the logs.
-3.  Open WhatsApp on your phone -> **Linked Devices** -> **Link a Device**.
-4.  Scan the QR code from the Railway logs.
-5.  Your phone is now linked! It will send vouchers automatically 24/7.
-
-## 3. MikroTik Cloud Bridge (Tailscale)
-Since your laptop is off, we need a "Permanent Bridge" between Railway and your router.
-
-1.  On your MikroTik (v7.x), go to **Terminal** and run:
+## 2. Install Coolify
+1.  Open your terminal (PowerShell or Command Prompt) and log into your server:
+    ```bash
+    ssh root@YOUR_SERVER_IP
     ```
-    /container/config/set ram-high=128M
-    /interface/tailscale/add name=ts1
+2.  Run this "One-Click" installer:
+    ```bash
+    curl -fsSL https://get.coollabs.io/coolify/install.sh | bash
     ```
-2.  Follow the MikroTik Tailscale guide to link it to your Tailscale account.
-3.  Tailscale will give your router a **Stable IP** (e.g., `100.64.0.5`).
-4.  Update `MIKROTIK_HOST` in your Railway Variables to this Tailscale IP.
+3.  Once finished, go to `http://YOUR_SERVER_IP:8000` in your browser.
+4.  Create your admin account.
 
-## 4. Paystack Production
-1.  Log in to Paystack Dashboard.
-2.  Go to **Settings -> Webhooks**.
-3.  Set URL to: `https://starlinknet-wifi.up.railway.app/api/pay/webhook`.
-4.  Go to **Settings -> API Keys**.
-5.  Set **Live Callback URL** to: `https://starlinknet-wifi.up.railway.app`.
+## 3. Connect your GitHub & Deploy
+1.  In Coolify, go to **Sources** -> **Add New Source** -> **GitHub App**. Follow the prompts to link your repo.
+2.  Go to **Projects** -> **Add New Project**.
+3.  Click **Add New Resource** -> **Public Repository** or **Private Repository**.
+4.  Select your `mynet` repository and the `main` branch.
+5.  Coolify will detect the `Dockerfile`.
+6.  **Important:** Under **Domains**, set your domain (e.g., `https://wifi.yourdomain.com`).
 
-## 5. Captive Portal
-1.  Update your `public/mikrotik_login.html` with the Railway URL.
-2.  Upload it to the MikroTik `hotspot` folder.
+## 4. WhatsApp Persistence (CRITICAL)
+To stay logged into WhatsApp even after server restarts:
+1.  In Coolify, go to your **Application Settings** -> **Storage**.
+2.  Click **Add Storage**.
+3.  **Name:** `whatsapp-session`
+4.  **Destination Path:** `/app/.wwebjs_auth`
+5.  This saves your login to the server's hard drive.
 
-**Your business is now fully cloud-based and professional!**
+## 5. Environment Variables
+In the **Variables** tab of your Coolify application, add all variables from your `.env.production`.
+*   Make sure `NEXT_PUBLIC_BASE_URL` is set to your new domain (e.g., `https://wifi.yourdomain.com`).
+*   Ensure `DATABASE_URL` (Supabase) is correct.
+
+## 6. Linking WhatsApp
+1.  Deploy the app.
+2.  Once deployed, go to the **Logs** tab in Coolify.
+3.  Look for the **QR Code**.
+4.  Open WhatsApp on your phone -> **Linked Devices** -> **Link a Device**.
+5.  Scan the QR code from the logs.
+6.  **You are now linked 24/7!**
+
+## 7. Update MikroTik & Paystack
+1.  **Paystack:** Update your Webhook and Callback URLs to `https://wifi.yourdomain.com/api/pay/webhook`.
+2.  **MikroTik:** In your Hotspot `login.html`, update the URL to `https://wifi.yourdomain.com`.
+
+**Your business is now 100% automated on your own private cloud!**

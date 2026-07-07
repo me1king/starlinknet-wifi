@@ -13,7 +13,7 @@ cmds = ["npx prisma generate", "npm run build"]
 cmd = "bash scripts/start.sh"
 
 [variables]
-# Essential flags for Puppeteer/Chromium on Railway
+# Essential flags for Puppeteer/Chromium in cloud environments
 PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
 # Stop Prisma from trying to generate twice

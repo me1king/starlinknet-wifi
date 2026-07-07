@@ -3,7 +3,7 @@ import { prisma } from './prisma';
 /**
  * PRODUCTION WHATSAPP SENDER
  * --------------------------
- * This uses your phone linked via the Railway background worker.
+ * This uses your phone linked via the cloud background worker.
  * It's 100% FREE with no "3-chat" limits.
  */
 export async function sendVoucherWhatsApp(phoneNumber: string, voucherCode: string, planName: string) {
@@ -13,7 +13,7 @@ export async function sendVoucherWhatsApp(phoneNumber: string, voucherCode: stri
                   `Thank you for choosing Starlinknet.WIFI!`;
 
   try {
-    // Talk to the background bridge running on Railway (Internal Port 4000)
+    // Talk to the background bridge (Internal Port 4000)
     // In production, we use the internal network name or localhost if in the same container
     const res = await fetch('http://localhost:4000/send', {
       method: 'POST',
