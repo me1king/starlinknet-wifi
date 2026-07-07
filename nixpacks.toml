@@ -1,23 +1,22 @@
-# PRODUCTION-GRADE CLOUD BUILD - FINAL STABILITY FIX
-providers = ["node"]
-
+# PRODUCTION-GRADE CLOUD BUILD - STABILITY & CACHE RESET
 [phases.setup]
-# Include OpenSSL (required for Prisma) and Chromium for WhatsApp
 nixPkgs = ["nodejs_20", "chromium", "openssl"]
 
 [phases.install]
-# Ensure clean install and skip massive browser downloads
-cmds = ["PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install --prefer-offline --no-audit"]
+cmds = ["npm install --prefer-offline --no-audit"]
 
 [phases.build]
-# Standard build command that handles Prisma automatically
-cmds = ["npm run build"]
+# Generate Prisma client first, then build the Next.js app
+cmds = ["npx prisma generate", "npm run build"]
 
 [start]
 cmd = "bash scripts/start.sh"
 
 [variables]
+# Essential flags for Puppeteer/Chromium on Railway
 PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
-# Help Prisma find its engine
+# Stop Prisma from trying to generate twice
 PRISMA_SKIP_POSTINSTALL_GENERATE = "true"
+# Optimize Next.js build memory
+NODE_OPTIONS = "--max-old-space-size=1536"
