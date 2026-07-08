@@ -36,12 +36,20 @@ declare global {
 const getPrisma = () => {
   if (!globalThis.prismaGlobal) {
     globalThis.prismaGlobal = prismaClientSingleton()
-    // Auto-initialize Default Site
-    globalThis.prismaGlobal.site.upsert({
-      where: { id: 'default-site' },
-      update: {},
-      create: { id: 'default-site', name: 'Main Operations' }
-    }).catch(e => console.warn("[Prisma] Default site init failed (usually okay if DB not ready)"));
+
+    // Auto-initialize Default Site (Skip during build time to avoid errors)
+    if (process.env.NEXT_PHASE !== 'phase-production-build' && process.env.NODE_ENV !== 'test') {
+      globalThis.prismaGlobal.site.upsert({
+        where: { id: 'default-site' },
+        update: {},
+        create: { id: 'default-site', name: 'Main Operations' }
+      }).catch(e => {
+        // Only log if it's not a missing env var error (expected during some build phases)
+        if (!e.message?.includes('DATABASE_URL')) {
+          console.warn("[Prisma] Default site init failed:", e.message);
+        }
+      });
+    }
   }
   return globalThis.prismaGlobal
 }
