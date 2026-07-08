@@ -3,6 +3,10 @@ FROM node:20-slim
 # Install Chromium and necessary dependencies for Puppeteer
 RUN apt-get update && apt-get install -y \
     chromium \
+    openssl \
+    python3 \
+    make \
+    g++ \
     fonts-ipafont-gothic \
     fonts-wqy-zenhei \
     fonts-thai-tlwg \
