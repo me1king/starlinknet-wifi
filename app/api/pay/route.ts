@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     // 2. Initialize Paystack Transaction
     const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
     if (!paystackSecret) {
-      return NextResponse.json({ error: "Paystack Secret Key is not configured in Vercel." }, { status: 500 });
+      return NextResponse.json({ error: "Paystack Secret Key is not configured in the cloud environment." }, { status: 500 });
     }
 
     // Paystack expects amount in Kobo (or cents) but for KES it's usually just the amount * 100

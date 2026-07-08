@@ -179,12 +179,12 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(systemSettings)
       });
-      if (res.ok) alert("Γ£à Announcement Published!");
+      if (res.ok) alert("✅ Announcement Published!");
       else {
         const data = await res.json();
-        alert(`Γ¥î Failed to publish: ${data.error || 'Unknown error'}`);
+        alert(`❌ Failed to publish: ${data.error || 'Unknown error'}`);
       }
-    } catch (err) { alert("Γ¥î Error connecting to server."); }
+    } catch (err) { alert("❌ Error connecting to server."); }
     finally { setActionLoading(false); }
   };
 
@@ -198,14 +198,14 @@ export default function AdminDashboard() {
         body: JSON.stringify({ ...formData, siteId: selectedSite, maxDevices: parseInt(formData.max_devices) })
       });
       if (res.ok) {
-        alert("Γ£à Package Saved!");
+        alert("✅ Package Saved!");
         setFormData({ id: '', name: '', durationMin: '60', price: '', download_limit: '5M', upload_limit: '5M', data_limit_mb: '', max_devices: '1', expiry_mode: 'CONTINUOUS' });
         fetchData(false);
       } else {
         const data = await res.json();
-        alert(`Γ¥î Save failed: ${data.error || 'Unknown error'}`);
+        alert(`❌ Save failed: ${data.error || 'Unknown error'}`);
       }
-    } catch (err) { alert("Γ¥î Connection failed."); }
+    } catch (err) { alert("❌ Connection failed."); }
     finally { setActionLoading(false); }
   };
 
@@ -226,9 +226,9 @@ export default function AdminDashboard() {
     try {
         const res = await fetch(`/api/admin/backup?siteId=${selectedSite}`, { method: 'POST' });
         if (res.ok) {
-            alert("Γ£à Cloud Backup Successful!");
+            alert("✅ Cloud Backup Successful!");
             fetchData(false);
-        } else alert("Γ¥î Backup failed.");
+        } else alert("❌ Backup failed.");
     } catch (e) { alert("Network error."); }
     finally { setActionLoading(false); }
   };
@@ -238,9 +238,9 @@ export default function AdminDashboard() {
     try {
         const res = await fetch(`/api/admin/network/scan-rogue?siteId=${selectedSite}`, { method: 'POST' });
         if (res.ok) {
-            alert("Γ£à Airspace Scan Complete!");
+            alert("✅ Airspace Scan Complete!");
             fetchData(false);
-        } else alert("Γ¥î Scan failed.");
+        } else alert("❌ Scan failed.");
     } catch (e) { alert("Network error."); }
     finally { setActionLoading(false); }
   };
@@ -489,13 +489,13 @@ export default function AdminDashboard() {
                         const data = await res.json();
 
                         if (data.success) {
-                          addLog("Γ£à Connection Success!");
-                          alert(`Γ£à ${data.message || 'Connected!'}\n\nHost: ${data.configUsed?.host}\nMode: ${data.configUsed?.mode}`);
+                          addLog("✅ Connection Success!");
+                          alert(`✅ ${data.message || 'Connected!'}\n\nHost: ${data.configUsed?.host}\nMode: ${data.configUsed?.mode}`);
                         } else {
-                          addLog(`Γ¥î Fail: ${data.error}`);
-                          let msg = `Γ¥î Connection Failed\n\nError: ${data.error}\n\nTip: ${data.tip}`;
+                          addLog(`❌ Fail: ${data.error}`);
+                          let msg = `❌ Connection Failed\n\nError: ${data.error}\n\nTip: ${data.tip}`;
                           if (data.error?.includes("AUTH_FAILED")) {
-                              msg = `ΓÜá∩╕Å PASSWORD MISMATCH\n\nYour router is rejecting the login.\n\nFIX: Run this in MikroTik Terminal:\n/user set admin password=Hazy.123`;
+                              msg = `⚠️ PASSWORD MISMATCH\n\nYour router is rejecting the login.\n\nFIX: Run this in MikroTik Terminal:\n/user set admin password=Hazy.123`;
                           }
                           alert(msg);
 
@@ -509,8 +509,8 @@ export default function AdminDashboard() {
                         }
                         fetchData(false);
                       } catch (err) {
-                        addLog("Γ¥î API unreachable");
-                        alert("Γ¥î Could not reach the API service. Make sure Next.js is running.");
+                        addLog("❌ API unreachable");
+                        alert("❌ Could not reach the API service. Make sure Next.js is running.");
                       }
                     }}
                     className="text-[8px] bg-gray-800 hover:bg-gray-700 px-2 py-0.5 rounded border border-gray-700 font-black uppercase text-indigo-400 ml-2"
