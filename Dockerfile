@@ -32,12 +32,13 @@ WORKDIR /app
 
 # Copy package files and install dependencies
 COPY package*.json ./
-RUN npm install
+# Use --legacy-peer-deps to avoid dependency conflicts that might crash the build
+RUN npm install --legacy-peer-deps
 
 # Copy the rest of the application
 COPY . .
 
-# Generate Prisma client
+# Generate Prisma client with explicit logging
 RUN npx prisma generate
 
 # Build the Next.js application
