@@ -42,6 +42,7 @@ async function getMikrotikConfig(siteId?: string): Promise<MikrotikConfig> {
     timeout: 15000,
   };
 
+  // If siteId is specified, we try to fetch site-specific credentials from DB
   if (siteId && siteId !== 'default-site') {
     try {
       const site = await prisma.site.findUnique({ where: { id: siteId } });
@@ -54,9 +55,13 @@ async function getMikrotikConfig(siteId?: string): Promise<MikrotikConfig> {
         if (site.routerPass) config.password = site.routerPass.replace(/['"]+/g, '').trim();
       }
     } catch (e) {
-      console.warn(`[MikroTik Config] Site ${siteId} fetch failed.`);
+      console.warn(`[MikroTik Config] Site ${siteId} fetch failed. Using global defaults.`);
     }
   }
+
+  // LOGGING: Crucial for debugging "I can't access MikroTik"
+  console.log(`[MikroTik] Target: ${config.host}:${config.port} (User: ${config.username})`);
+
   return config;
 }
 

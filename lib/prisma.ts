@@ -3,8 +3,8 @@ import { PrismaClient } from '@prisma/client'
 const prismaClientSingleton = () => {
   return new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-    // SQLite Specific pooling
-    // SQLite doesn't have a traditional pool like PG, but we can set busy timeout
+    // Supabase specific pooling optimization
+    datasourceUrl: process.env.DATABASE_URL + (process.env.DATABASE_URL?.includes('?') ? '&' : '?') + 'connection_limit=10&pool_timeout=20',
   }).$extends({
     query: {
       async $allOperations({ operation, model, args, query }: { operation: string; model: string; args: any; query: (args: any) => Promise<any> }) {
@@ -12,6 +12,7 @@ const prismaClientSingleton = () => {
         try {
           return await query(args);
         } catch (error: any) {
+          console.error(`[Prisma Error] ${model}.${operation} failed:`, error.message);
           if (error.message?.includes('connection') || error.message?.includes('reached')) {
             console.error(`[Prisma Database Error] Critical connection failure in ${model}.${operation}`);
           }
@@ -35,6 +36,10 @@ declare global {
 // across hot-reloads.
 const getPrisma = () => {
   if (!globalThis.prismaGlobal) {
+    const dbUrl = process.env.DATABASE_URL || 'not-set';
+    const maskedUrl = dbUrl.replace(/:[^:@]+@/, ':****@');
+    console.log(`[Prisma] Initializing with URL: ${maskedUrl} (Mode: ${process.env.NODE_ENV})`);
+
     globalThis.prismaGlobal = prismaClientSingleton()
 
     // Auto-initialize Default Site (Skip during build time to avoid errors)
