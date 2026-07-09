@@ -3,8 +3,6 @@ import { PrismaClient } from '@prisma/client'
 const prismaClientSingleton = () => {
   return new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-    // Supabase specific pooling optimization
-    datasourceUrl: process.env.DATABASE_URL + (process.env.DATABASE_URL?.includes('?') ? '&' : '?') + 'connection_limit=10&pool_timeout=20',
   }).$extends({
     query: {
       async $allOperations({ operation, model, args, query }: { operation: string; model: string; args: any; query: (args: any) => Promise<any> }) {
