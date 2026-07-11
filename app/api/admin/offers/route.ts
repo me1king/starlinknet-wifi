@@ -111,6 +111,7 @@ export async function POST(request: Request) {
 
     const offer = await prisma.voucherOffer.create({
       data: {
+        id: body.id || undefined, // Allow frontend to specify ID if needed, but Prisma handles it by default
         name,
         duration: finalDuration || "1 Hour",
         durationMin: parseInt(durationMin) || 60,
