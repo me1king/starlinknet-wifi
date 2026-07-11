@@ -83,28 +83,36 @@ export async function POST(req: NextRequest) {
         })
       ]);
 
-      // 3. MikroTik Provisioning (Live Sync)
-      console.log(`[MikroTik] Provisioning ${voucherCode} (${durationMin}m, ${speedLimit}, ${payment.offer?.dataLimitMB || 'Unlimited'}MB) on site ${payment.siteId}`);
-      const routerResult = await createMikrotikVoucher(
-        voucherCode,
-        payment.offerId || '1hr',
-        durationMin + 5, // 5 min grace period
-        expiryMode,
-        undefined, // We'll rely on the first login to bind MAC
-        speedLimit,
-        payment.offer?.dataLimitMB || undefined,
-        undefined, undefined, undefined,
-        payment.siteId,
-        payment.offer?.maxDevices || 1
-      );
+      // 3. MikroTik Provisioning (Live Sync with Robustness)
+      console.log(`[MikroTik] Provisioning ${voucherCode} on site ${payment.siteId}`);
+      let routerResult = { success: false };
 
-      // 4. Force immediate session activation if MAC is available (Optional but helpful)
-      if (payment.macAddress) {
+      try {
+        routerResult = await createMikrotikVoucher(
+          voucherCode,
+          payment.offerId || '1hr',
+          durationMin + 5,
+          expiryMode,
+          undefined,
+          speedLimit,
+          payment.offer?.dataLimitMB || undefined,
+          undefined, undefined, undefined,
+          payment.siteId,
+          payment.offer?.maxDevices || 1
+        );
+      } catch (routerErr: any) {
+        console.error(`[MikroTik Failure] Could not push voucher to router: ${routerErr.message}`);
+        // NO EMBARRASSMENT: We continue anyway because the voucher is in the DB
+        // and sent to customer. Admin can manually sync later or retry.
+      }
+
+      // 4. Force immediate session activation if MAC is available
+      if (routerResult.success && payment.macAddress) {
         console.log(`[MikroTik] Auto-activating session for MAC: ${payment.macAddress}`);
         await activateHotspotSession(payment.macAddress, payment.ipAddress || '0.0.0.0', voucherCode, payment.siteId).catch(() => {});
       }
 
-      // 4. Update Provisioning Status
+      // 4. Update Provisioning Status (Even if it failed, we mark payment active so customer gets voucher)
       await prisma.payment.update({
         where: { id: payment.id },
         data: { provisioned: routerResult.success }

@@ -31,15 +31,17 @@ interface VoucherCreationResult {
 
 async function getMikrotikConfig(siteId?: string): Promise<MikrotikConfig> {
   // Source of Truth: environment variables
-  const envHost = (process.env.MIKROTIK_HOST || '10.5.50.1').replace(/https?:\/\//g, '').replace(/['"]+/g, '').trim();
+  // FAIL-SAFE: If switching ISPs, WireGuard/Tailscale IPs stay constant (10.0.0.2 / 100.x.x.x)
+  // This ensures the system doesn't break when you change from Starlink to Fiber etc.
+  const envHost = (process.env.MIKROTIK_HOST || '10.0.0.2').replace(/https?:\/\//g, '').replace(/['"]+/g, '').trim();
   const envPort = parseInt((process.env.MIKROTIK_PORT || '8728').replace(/['"]+/g, '').trim());
 
   let config: MikrotikConfig = {
     host: envHost,
     port: envPort,
     username: (process.env.MIKROTIK_USER || 'admin').replace(/['"]+/g, '').trim(),
-    password: (process.env.MIKROTIK_PASSWORD || '').replace(/['"]+/g, '').trim(),
-    timeout: 15000,
+    password: (process.env.MIKROTIK_PASSWORD || 'Hazy.123').replace(/['"]+/g, '').trim(),
+    timeout: 20000, // Increased to 20s to handle high-latency ISP switches
   };
 
   // If siteId is specified, we try to fetch site-specific credentials from DB
