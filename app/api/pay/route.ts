@@ -38,7 +38,9 @@ export async function POST(request: Request) {
     // Paystack expects amount in Kobo (or cents) but for KES it's usually just the amount * 100
     const amountInMinorUnits = Math.round(price * 100);
 
-    const callbackUrl = new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://starlinknet.wifi');
+    // FORCE PRODUCTION DOMAIN: Prevent redirecting to Vercel
+    const productionUrl = 'https://starlinkwifinet.duckdns.org';
+    const callbackUrl = new URL(productionUrl);
     if (mac) callbackUrl.searchParams.set('mac', mac);
     if (ip) callbackUrl.searchParams.set('ip', ip);
     if (siteId) callbackUrl.searchParams.set('siteId', siteId);

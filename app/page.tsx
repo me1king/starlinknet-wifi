@@ -21,6 +21,19 @@ export default function PayPage() {
   const [activeReference, setActiveReference] = useState<string | null>(null);
   const [systemBanner, setSystemBanner] = useState<{ text: string, type: string } | null>(null);
 
+  // High-Concurrency Optimization: Local Storage Caching
+  useEffect(() => {
+    const cachedPlans = localStorage.getItem('wifi_plans_cache');
+    if (cachedPlans) {
+      try {
+        const data = JSON.parse(cachedPlans);
+        setBundlePlans(data);
+        if (data.length > 0) setSelectedPlan(data[0]);
+        setFetching(false);
+      } catch (e) {}
+    }
+  }, []);
+
   // New Live Timer & Success Features
   const [statusInfo, setStatusInfo] = useState<any>(null);
   const [checkingStatus, setCheckingStatus] = useState(false);
@@ -98,7 +111,8 @@ export default function PayPage() {
         const data = JSON.parse(text);
         if (res.ok && Array.isArray(data)) {
           setBundlePlans(data);
-          if (data.length > 0) setSelectedPlan(data[0]);
+          localStorage.setItem('wifi_plans_cache', JSON.stringify(data)); // Cache for speed
+          if (data.length > 0 && !selectedPlan) setSelectedPlan(data[0]);
         }
       } catch (err) {
         console.error("Plans fetch crash:", err);
