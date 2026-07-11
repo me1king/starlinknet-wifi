@@ -8,8 +8,298 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model ActiveSession {
+  id          String   @id
+  macAddress  String   @unique
+  ipAddress   String
+  voucherCode String
+  deviceType  String   @default("PHONE")
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  siteId      String   @default("default-site")
+  Site        Site     @relation(fields: [siteId], references: [id])
+
+  @@index([macAddress])
+  @@index([voucherCode])
+}
+
+model AdminAlert {
+  id        String    @id
+  type      String
+  severity  String    @default("MEDIUM")
+  title     String
+  message   String
+  data      String?
+  read      Boolean   @default(false)
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  siteId    String    @default("default-site")
+  Site      Site      @relation(fields: [siteId], references: [id])
+
+  @@index([read, createdAt])
+  @@index([severity])
+}
+
+model BalanceAudit {
+  id              String   @id
+  siteId          String
+  expectedRevenue Float
+  actualRevenue   Float
+  discrepancy     Float
+  status          String
+  flaggedReason   String?
+  auditDate       DateTime @default(now())
+  Site            Site     @relation(fields: [siteId], references: [id])
+}
+
+model BlacklistedDevice {
+  id          String    @id
+  macAddress  String
+  ipAddress   String?
+  reason      String
+  severity    String    @default("MEDIUM")
+  bannedAt    DateTime  @default(now())
+  bannedUntil DateTime?
+  bannedBy    String
+  notes       String?
+  siteId      String    @default("default-site")
+  Site        Site      @relation(fields: [siteId], references: [id])
+
+  @@index([bannedAt])
+  @@index([macAddress])
+}
+
+model BulkVoucher {
+  id           String       @id
+  voucherCode  String       @unique
+  offerId      String
+  isUsed       Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  siteId       String       @default("default-site")
+  VoucherOffer VoucherOffer @relation(fields: [offerId], references: [id])
+  Site         Site         @relation(fields: [siteId], references: [id])
+}
+
+model DeviceConnection {
+  id              String    @id
+  macAddress      String
+  ipAddress       String
+  deviceName      String?
+  voucherCode     String?
+  status          String    @default("CONNECTED")
+  connectedAt     DateTime  @default(now())
+  disconnectedAt  DateTime?
+  sessionDuration Int?
+  dataUsed        Float?
+  siteId          String    @default("default-site")
+  Site            Site      @relation(fields: [siteId], references: [id])
+
+  @@index([connectedAt])
+  @@index([ipAddress])
+  @@index([macAddress])
+  @@index([voucherCode])
+}
+
+model DeviceProfile {
+  id            String    @id
+  macAddress    String    @unique
+  ipAddress     String?
+  deviceType    String?
+  deviceName    String?
+  browserType   String?
+  osVersion     String?
+  trialUsed     Boolean   @default(false)
+  trialUsedAt   DateTime?
+  totalSessions Int       @default(0)
+  totalDataUsed Float     @default(0)
+  totalSpent    Float     @default(0)
+  firstSeen     DateTime  @default(now())
+  lastSeen      DateTime
+  siteId        String    @default("default-site")
+  Site          Site      @relation(fields: [siteId], references: [id])
+
+  @@index([deviceType])
+  @@index([lastSeen])
+  @@index([macAddress])
+}
+
+model NetworkDevice {
+  id          String    @id
+  name        String
+  ipAddress   String
+  type        String
+  status      String    @default("ONLINE")
+  lastPing    DateTime?
+  siteId      String
+  smartPlugId String?
+  createdAt   DateTime  @default(now())
+  Site        Site      @relation(fields: [siteId], references: [id])
+}
+
+model OperationalReport {
+  id         String   @id
+  siteId     String
+  reportType String
+  content    String
+  sentTo     String
+  createdAt  DateTime @default(now())
+  Site       Site     @relation(fields: [siteId], references: [id])
+}
+
+model Payment {
+  id             String        @id
+  transactionRef String?       @unique
+  idempotencyKey String?       @unique
+  amount         Float
+  phoneNumber    String?
+  macAddress     String?
+  ipAddress      String?
+  voucherCode    String
+  offerId        String?
+  status         String        @default("active")
+  provisioned    Boolean       @default(false)
+  retryCount     Int           @default(0)
+  resultDesc     String?
+  createdAt      DateTime      @default(now())
+  expiresAt      DateTime
+  siteId         String        @default("default-site")
+  VoucherOffer   VoucherOffer? @relation(fields: [offerId], references: [id])
+  Site           Site          @relation(fields: [siteId], references: [id])
+
+  @@index([idempotencyKey])
+  @@index([provisioned, status])
+  @@index([transactionRef])
+  @@index([voucherCode])
+}
+
+model PaymentEvent {
+  id                String   @id
+  externalReference String   @unique
+  phoneNumber       String?
+  amount            Float?
+  status            String
+  resultDesc        String?
+  macAddress        String?
+  ipAddress         String?
+  offerId           String?
+  createdAt         DateTime @default(now())
+  siteId            String   @default("default-site")
+  Site              Site     @relation(fields: [siteId], references: [id])
+}
+
+model PerformanceLog {
+  id            String   @id
+  siteId        String
+  downloadSpeed Float
+  uploadSpeed   Float
+  latency       Int
+  provider      String
+  timestamp     DateTime @default(now())
+  Site          Site     @relation(fields: [siteId], references: [id])
+}
+
+model Referral {
+  id              String   @id
+  referrerVoucher String
+  refereeMac      String   @unique
+  rewardMinutes   Int      @default(30)
+  status          String   @default("PENDING")
+  createdAt       DateTime @default(now())
+}
+
+model RevenueSnapshot {
+  id                     String   @id
+  date                   DateTime @unique
+  totalRevenue           Float
+  totalSessions          Int
+  activeUsers            Int
+  totalUsers             Int
+  averageSessionDuration Int
+  topPackage             String?
+  topDeviceType          String?
+  siteId                 String   @default("default-site")
+  Site                   Site     @relation(fields: [siteId], references: [id])
+
+  @@index([date])
+}
+
+model RouterBackup {
+  id        String   @id
+  siteId    String
+  filename  String
+  content   String
+  createdAt DateTime @default(now())
+  Site      Site     @relation(fields: [siteId], references: [id])
+}
+
+model SecurityAlert {
+  id         String   @id
+  siteId     String
+  type       String
+  message    String
+  severity   String
+  isResolved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  Site       Site     @relation(fields: [siteId], references: [id])
+}
+
+model Site {
+  id                String              @id
+  name              String
+  location          String?
+  routerHost        String?
+  routerUser        String?
+  routerPass        String?
+  createdAt         DateTime            @default(now())
+  ActiveSession     ActiveSession[]
+  AdminAlert        AdminAlert[]
+  BalanceAudit      BalanceAudit[]
+  BlacklistedDevice BlacklistedDevice[]
+  BulkVoucher       BulkVoucher[]
+  DeviceConnection  DeviceConnection[]
+  DeviceProfile     DeviceProfile[]
+  NetworkDevice     NetworkDevice[]
+  OperationalReport OperationalReport[]
+  Payment           Payment[]
+  PaymentEvent      PaymentEvent[]
+  PerformanceLog    PerformanceLog[]
+  RevenueSnapshot   RevenueSnapshot[]
+  RouterBackup      RouterBackup[]
+  SecurityAlert     SecurityAlert[]
+  Voucher           Voucher[]
+  VoucherOffer      VoucherOffer[]
+  WhitelistedDevice WhitelistedDevice[]
+}
+
+model SpeedTest {
+  id        String   @id
+  download  Float
+  upload    Float
+  ping      Float
+  isp       String?
+  createdAt DateTime @default(now())
+}
+
+model SupportMessage {
+  id          String   @id
+  phoneNumber String
+  voucherCode String?
+  message     String
+  direction   String
+  channel     String
+  createdAt   DateTime @default(now())
+}
+
+model SystemSetting {
+  id             String   @id @default("global")
+  bannerText     String   @default("")
+  bannerType     String   @default("info")
+  blockTethering Boolean  @default(false)
+  updatedAt      DateTime
+}
+
 model Voucher {
-  id          String    @id @default(cuid())
+  id          String    @id
   code        String    @unique
   durationMin Int
   price       Float
@@ -17,337 +307,47 @@ model Voucher {
   createdAt   DateTime  @default(now())
   activatedAt DateTime?
   siteId      String    @default("default-site")
-  site        Site      @relation(fields: [siteId], references: [id])
+  Site        Site      @relation(fields: [siteId], references: [id])
 
   @@index([code])
 }
 
-model ActiveSession {
-  id          String    @id @default(cuid())
-  macAddress  String    @unique
-  ipAddress   String
-  voucherCode String
-  deviceType  String    @default("PHONE") // "PHONE", "TV", "LAPTOP"
-  expiresAt   DateTime
-  createdAt   DateTime  @default(now())
-  siteId      String    @default("default-site")
-  site        Site      @relation(fields: [siteId], references: [id])
-
-  @@index([voucherCode])
-  @@index([macAddress])
-}
-
 model VoucherOffer {
-  id             String   @id @default(cuid())
+  id             String        @id
   name           String
-  duration       String   // e.g., '1 hour' or '1 day'
+  duration       String
   durationMin    Int
-  expiryMode     String   @default("CONTINUOUS") // "CONTINUOUS" or "ACTIVE_ONLY"
+  expiryMode     String        @default("CONTINUOUS")
   price          Float
-  maxDevices     Int      @default(1)
-  speedLimit     String?  // e.g., '5M/5M'
-  downloadLimit  String   @default("5M")
-  uploadLimit    String   @default("5M")
-  dataLimitMB    Int?     // Total data allowed in MB
-  burstLimit     String?  // e.g., '10M/10M'
-  burstThreshold String?  // e.g., '7M/7M'
-  burstTime      String?  // e.g., '10s/10s'
-  allowTethering Boolean  @default(true)
-  isSystem       Boolean  @default(false)
-  createdAt      DateTime @default(now())
+  maxDevices     Int           @default(1)
+  speedLimit     String?
+  downloadLimit  String        @default("5M")
+  uploadLimit    String        @default("5M")
+  dataLimitMB    Int?
+  burstLimit     String?
+  burstThreshold String?
+  burstTime      String?
+  allowTethering Boolean       @default(true)
+  isSystem       Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  siteId         String        @default("default-site")
   BulkVoucher    BulkVoucher[]
   Payment        Payment[]
-  siteId         String   @default("default-site")
-  site           Site     @relation(fields: [siteId], references: [id])
-}
-
-model Payment {
-  id             String       @id @default(cuid())
-  transactionRef String?      @unique
-  idempotencyKey String?      @unique // Prevents double charging
-  amount         Float
-  phoneNumber    String?
-  macAddress     String?      // Added for auto-login logic
-  ipAddress      String?      // Added for auto-login logic
-  voucherCode    String
-  offerId        String?      // Link to the offer for itemized earnings
-  offer          VoucherOffer? @relation(fields: [offerId], references: [id])
-  status         String       @default("active") // 'active', 'expired', 'failed', 'deleted', 'processing'
-  provisioned    Boolean      @default(false)    // Tracks if successfully pushed to MikroTik
-  retryCount     Int          @default(0)
-  resultDesc     String?      // Failure reason or success detail
-  createdAt      DateTime     @default(now())
-  expiresAt      DateTime
-  siteId         String       @default("default-site")
-  site           Site         @relation(fields: [siteId], references: [id])
-
-  @@index([voucherCode])
-  @@index([transactionRef])
-  @@index([idempotencyKey])
-  @@index([provisioned, status])
-}
-
-model PaymentEvent {
-  id                String   @id @default(cuid())
-  externalReference String   @unique // CheckoutRequestID
-  phoneNumber       String?
-  amount            Float?
-  status            String   // 'SUCCESS', 'CANCELLED', 'FAILED', 'PENDING'
-  resultDesc        String?
-  macAddress        String?
-  ipAddress         String?
-  offerId           String?
-  createdAt         DateTime @default(now())
-  siteId            String   @default("default-site")
-  site              Site     @relation(fields: [siteId], references: [id])
-}
-
-model BulkVoucher {
-  id          String       @id @default(cuid())
-  voucherCode String       @unique
-  offerId     String
-  offer       VoucherOffer @relation(fields: [offerId], references: [id])
-  isUsed      Boolean      @default(false)
-  createdAt   DateTime     @default(now())
-  siteId      String       @default("default-site")
-  site         Site         @relation(fields: [siteId], references: [id])
-}
-
-model Site {
-  id           String   @id @default(cuid())
-  name         String
-  location     String?
-  routerHost   String?
-  routerUser   String?
-  routerPass   String?
-  createdAt    DateTime @default(now())
-  Voucher      Voucher[]
-  ActiveSession ActiveSession[]
-  VoucherOffer  VoucherOffer[]
-  Payment       Payment[]
-  PaymentEvent  PaymentEvent[]
-  BulkVoucher   BulkVoucher[]
-  Backups      RouterBackup[]
-  SecurityAlert SecurityAlert[]
-  Devices      NetworkDevice[]
-  PerformanceLogs PerformanceLog[]
-  Audits       BalanceAudit[]
-  Reports      OperationalReport[]
-  Connections  DeviceConnection[]
-  Blacklist    BlacklistedDevice[]
-  Whitelist    WhitelistedDevice[]
-  Profiles     DeviceProfile[]
-  Alerts       AdminAlert[]
-  RevenueSnapshots RevenueSnapshot[]
-}
-
-model NetworkDevice {
-  id            String    @id @default(cuid())
-  name          String    // e.g., "Main Switch", "Fiber Modem"
-  ipAddress     String
-  type          String    // "ROUTER", "SWITCH", "AP", "MODEM"
-  status        String    @default("ONLINE") // "ONLINE", "OFFLINE"
-  lastPing      DateTime?
-  siteId        String
-  site          Site      @relation(fields: [siteId], references: [id])
-  smartPlugId   String?   // For remote reboot integration (Sonoff/Tuya)
-  createdAt     DateTime  @default(now())
-}
-
-model PerformanceLog {
-  id            String   @id @default(cuid())
-  siteId        String
-  site          Site     @relation(fields: [siteId], references: [id])
-  downloadSpeed Float    // In Mbps
-  uploadSpeed   Float    // In Mbps
-  latency       Int      // In ms
-  provider      String   // e.g., "Starlink", "Safaricom"
-  timestamp     DateTime @default(now())
-}
-
-model BalanceAudit {
-  id                String   @id @default(cuid())
-  siteId            String
-  site              Site     @relation(fields: [siteId], references: [id])
-  expectedRevenue   Float    // Based on vouchers created
-  actualRevenue     Float    // Based on payment gateway settlements
-  discrepancy       Float
-  status            String   // "CLEAN", "FLAGGED"
-  flaggedReason     String?
-  auditDate         DateTime @default(now())
-}
-
-model OperationalReport {
-  id            String   @id @default(cuid())
-  siteId        String
-  site          Site     @relation(fields: [siteId], references: [id])
-  reportType    String   // "DAILY_SUMMARY", "TAX_REPORT"
-  content       String   // JSON or serialized summary
-  sentTo        String   // Email or WhatsApp number
-  createdAt     DateTime @default(now())
-}
-
-model SupportMessage {
-  id            String   @id @default(cuid())
-  phoneNumber   String
-  voucherCode   String?
-  message       String
-  direction     String   // "INBOUND", "OUTBOUND"
-  channel       String   // "WHATSAPP", "SMS"
-  createdAt     DateTime @default(now())
-}
-
-model RouterBackup {
-  id        String   @id @default(cuid())
-  siteId    String
-  site      Site     @relation(fields: [siteId], references: [id])
-  filename  String
-  content   String   // Stores the .rsc content
-  createdAt DateTime @default(now())
-}
-
-model SecurityAlert {
-  id        String   @id @default(cuid())
-  siteId    String
-  site      Site     @relation(fields: [siteId], references: [id])
-  type      String   // "ROGUE_AP", "BRUTE_FORCE", "OFFLINE"
-  message   String
-  severity  String   // "LOW", "MEDIUM", "HIGH", "CRITICAL"
-  isResolved Boolean  @default(false)
-  createdAt DateTime @default(now())
-}
-
-model SystemSetting {
-  id              String   @id @default("global")
-  bannerText      String   @default("")
-  bannerType      String   @default("info") // "info", "warning", "maintenance"
-  blockTethering  Boolean  @default(false)
-  updatedAt       DateTime @updatedAt
-}
-
-model SpeedTest {
-  id        String   @id @default(cuid())
-  download  Float    // in Mbps
-  upload    Float    // in Mbps
-  ping      Float    // in ms
-  isp       String?
-  createdAt DateTime @default(now())
-}
-
-model Referral {
-  id               String   @id @default(cuid())
-  referrerVoucher  String   // The voucher/identifier who shared
-  refereeMac       String   @unique // The new user's device
-  rewardMinutes    Int      @default(30)
-  status           String   @default("PENDING") // PENDING, REWARDED
-  createdAt        DateTime @default(now())
-}
-
-model DeviceConnection {
-  id            String    @id @default(cuid())
-  macAddress    String
-  ipAddress     String
-  deviceName    String?   // Device name from MikroTik
-  voucherCode   String?   // Linked voucher if any
-  status        String    @default("CONNECTED") // "CONNECTED", "DISCONNECTED", "EXPIRED"
-  connectedAt   DateTime  @default(now())
-  disconnectedAt DateTime?
-  sessionDuration Int?    // Duration in seconds
-  dataUsed      Float?    // Data used in MB
-  siteId        String    @default("default-site")
-  site          Site      @relation(fields: [siteId], references: [id])
-
-  @@index([macAddress])
-  @@index([ipAddress])
-  @@index([voucherCode])
-  @@index([connectedAt])
-}
-
-model BlacklistedDevice {
-  id            String    @id @default(cuid())
-  macAddress    String
-  ipAddress     String?
-  reason        String    // "High bandwidth", "Spam", "Abuse", etc
-  severity      String    @default("MEDIUM") // LOW, MEDIUM, HIGH
-  bannedAt      DateTime  @default(now())
-  bannedUntil   DateTime? // Null = permanent
-  bannedBy      String    // Admin username
-  notes         String?
-  siteId        String    @default("default-site")
-  site          Site      @relation(fields: [siteId], references: [id])
-
-  @@index([macAddress])
-  @@index([bannedAt])
+  Site           Site          @relation(fields: [siteId], references: [id])
 }
 
 model WhitelistedDevice {
-  id            String    @id @default(cuid())
-  macAddress    String    @unique
-  ipAddress     String?
-  name          String    // "Admin", "Reception", "Staff", etc
-  reason        String?
-  freeAccess    Boolean   @default(true)
-  allowedUntil  DateTime? // Null = permanent
-  createdAt     DateTime  @default(now())
-  createdBy     String    // Admin username
-  siteId        String    @default("default-site")
-  site          Site      @relation(fields: [siteId], references: [id])
+  id           String    @id
+  macAddress   String    @unique
+  ipAddress    String?
+  name         String
+  reason       String?
+  freeAccess   Boolean   @default(true)
+  allowedUntil DateTime?
+  createdAt    DateTime  @default(now())
+  createdBy    String
+  siteId       String    @default("default-site")
+  Site         Site      @relation(fields: [siteId], references: [id])
 
   @@index([macAddress])
-}
-
-model DeviceProfile {
-  id            String    @id @default(cuid())
-  macAddress    String    @unique
-  ipAddress     String?
-  deviceType    String?   // "iOS", "Android", "Windows", "Mac", "Unknown"
-  deviceName    String?
-  browserType   String?   // "Safari", "Chrome", "Firefox", etc
-  osVersion     String?
-  trialUsed     Boolean   @default(false)
-  trialUsedAt   DateTime?
-  totalSessions Int       @default(0)
-  totalDataUsed Float     @default(0) // MB
-  totalSpent    Float     @default(0) // KES
-  firstSeen     DateTime  @default(now())
-  lastSeen      DateTime  @updatedAt
-  siteId        String    @default("default-site")
-  site          Site      @relation(fields: [siteId], references: [id])
-
-  @@index([macAddress])
-  @@index([deviceType])
-  @@index([lastSeen])
-}
-
-model AdminAlert {
-  id            String    @id @default(cuid())
-  type          String    // "ROUTER_DOWN", "HIGH_USAGE", "LOW_BALANCE", "FAILED_PAYMENT", "DEVICE_BANNED"
-  severity      String    @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
-  title         String
-  message       String
-  data          String?   // JSON with additional context
-  read          Boolean   @default(false)
-  readAt        DateTime?
-  createdAt     DateTime  @default(now())
-  siteId        String    @default("default-site")
-  site          Site      @relation(fields: [siteId], references: [id])
-
-  @@index([read, createdAt])
-  @@index([severity])
-}
-
-model RevenueSnapshot {
-  id            String    @id @default(cuid())
-  date          DateTime  @unique // One per day
-  totalRevenue  Float
-  totalSessions Int
-  activeUsers   Int
-  totalUsers    Int
-  averageSessionDuration Int // seconds
-  topPackage    String?
-  topDeviceType String?
-  siteId        String    @default("default-site")
-  site          Site      @relation(fields: [siteId], references: [id])
-
-  @@index([date])
 }
