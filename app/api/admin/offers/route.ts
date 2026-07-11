@@ -144,7 +144,11 @@ export async function PUT(request: Request) {
       data_limit_mb, durationMin
     } = body;
 
-    if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
+    // NO EMBARRASSMENT: If frontend misses ID but provides name, try to find by name or return error
+    if (!id) {
+      console.warn("[Offers PUT] Received update request without ID. Body:", JSON.stringify(body));
+      return NextResponse.json({ error: "Missing Package ID. Please refresh the page and try again." }, { status: 400 });
+    }
 
     const finalDataLimit = data_limit_mb ? parseInt(data_limit_mb) : (body.dataLimitMB ? parseInt(body.dataLimitMB) : null);
 
