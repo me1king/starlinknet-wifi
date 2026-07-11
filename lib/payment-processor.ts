@@ -99,12 +99,15 @@ export async function processPaymentSuccess(reference: string, amount: number, m
 
     // 6. Final Status & Notifications
     if (routerResult.success && macAddress && ipAddress) {
-      await activateHotspotSession(macAddress, ipAddress, voucherCode, siteId).catch(() => {});
+      // Fire and forget router activation to keep response snappy
+      activateHotspotSession(macAddress, ipAddress, voucherCode, siteId).catch(() => {});
     }
 
     // WhatsApp Message via Official Linked Phone (FREE Mode)
+    // Non-blocking call for speed
     sendVoucherWhatsApp(String(phoneNumber), voucherCode, packageName).catch(() => {});
 
+    console.log(`[Processor] Activation complete for ${voucherCode}. Serving client now.`);
     return { success: true, voucherCode };
   } catch (error: any) {
     console.error("[Processor] Fatal Error:", error.message);

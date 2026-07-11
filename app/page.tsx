@@ -231,13 +231,19 @@ export default function PayPage() {
           setPurchasedVoucher(data.voucherCode);
           setIsSuccess(true);
           setIsWaitingForPin(false);
+          setLoading(false); // Fix hang
           localStorage.removeItem('active_checkout_ref');
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
 
-          setTimeout(() => loginRouter(data.voucherCode), 2000);
+          // Show referral after a small delay
+          setTimeout(() => setShowRefer(true), 3000);
+
+          // Force instant login
+          loginRouter(data.voucherCode);
         } else if (data.status === 'failed') {
           setStatus({ success: false, message: `❌ Payment failed: ${data.message || 'Cancelled'}` });
           setIsWaitingForPin(false);
+          setLoading(false); // Fix hang
           localStorage.removeItem('active_checkout_ref');
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         }
@@ -521,10 +527,14 @@ export default function PayPage() {
                   I already entered my PIN
                 </button>
                 <button
-                  onClick={() => setIsWaitingForPin(false)}
-                  style={{ width: "100%", background: "none", border: "none", color: "#9ca3af", fontSize: "11px", cursor: "pointer" }}
+                  onClick={() => {
+                      setIsWaitingForPin(false);
+                      setLoading(false);
+                      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+                  }}
+                  style={{ width: "100%", background: "none", border: "none", color: "#9ca3af", fontSize: "13px", fontWeight: "700", cursor: "pointer", textDecoration: "underline" }}
                 >
-                  Cancel & Go Back
+                  Start Again / Cancel
                 </button>
               </div>
             ) : (
