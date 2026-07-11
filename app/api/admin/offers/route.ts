@@ -97,6 +97,9 @@ export async function POST(request: Request) {
       dataLimitMB, siteId, durationMin
     } = body;
 
+    // Generate a secure ID if missing to prevent "Argument id is missing" error
+    const finalId = body.id || `offer_${Math.random().toString(36).substring(2, 11)}`;
+
     // Support camelCase from UI but map to DB if needed
     const finalDataLimit = dataLimitMB ? parseInt(dataLimitMB) : (body.data_limit_mb ? parseInt(body.data_limit_mb) : null);
 
@@ -111,7 +114,7 @@ export async function POST(request: Request) {
 
     const offer = await prisma.voucherOffer.create({
       data: {
-        id: body.id || undefined, // Allow frontend to specify ID if needed, but Prisma handles it by default
+        id: finalId,
         name,
         duration: finalDuration || "1 Hour",
         durationMin: parseInt(durationMin) || 60,
