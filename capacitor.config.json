@@ -1,0 +1,9 @@
+{
+  "appId": "com.starlinknet.wifi",
+  "appName": "Starlinknet WIFI",
+  "webDir": "out",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}
