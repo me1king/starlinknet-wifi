@@ -35,10 +35,41 @@ declare global {
 const getPrisma = () => {
   if (!globalThis.prismaGlobal) {
     const dbUrl = process.env.DATABASE_URL || 'not-set';
-    const maskedUrl = dbUrl.replace(/:[^:@]+@/, ':****@');
+
+    // SCALE CHECK: Ensure high connection limit for high-traffic (20+ per second)
+    const hasLimit = dbUrl.includes('connection_limit');
+    const finalUrl = (process.env.NODE_ENV === 'production' && !hasLimit)
+        ? `${dbUrl}${dbUrl.includes('?') ? '&' : '?'}connection_limit=100&pool_timeout=30`
+        : dbUrl;
+
+    const maskedUrl = finalUrl.replace(/:[^:@]+@/, ':****@');
     console.log(`[Prisma] Initializing with URL: ${maskedUrl} (Mode: ${process.env.NODE_ENV})`);
 
-    globalThis.prismaGlobal = prismaClientSingleton()
+    globalThis.prismaGlobal = new PrismaClient({
+      datasources: {
+        db: {
+          url: finalUrl,
+        },
+      },
+      log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+    }).$extends({
+      query: {
+        async $allOperations({ operation, model, args, query }: any) {
+          const start = Date.now();
+          try {
+            return await query(args);
+          } catch (error: any) {
+            console.error(`[Prisma Error] ${model}.${operation} failed:`, error.message);
+            throw error;
+          } finally {
+            const end = Date.now();
+            if (end - start > 5000) {
+              console.warn(`[Prisma Slow Query] ${model}.${operation} took ${end - start}ms`);
+            }
+          }
+        },
+      },
+    });
 
     // Auto-initialize Default Site (Skip during build time to avoid errors)
     if (process.env.NEXT_PHASE !== 'phase-production-build' && process.env.NODE_ENV !== 'test') {
