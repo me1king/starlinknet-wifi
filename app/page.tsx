@@ -254,7 +254,7 @@ export default function PayPage() {
           loginRouter(data.voucherCode);
 
           // Show referral gift box immediately
-          setTimeout(() => setShowRefer(true), 1000);
+          setShowRefer(true);
         } else if (data.status === 'failed') {
           setStatus({ success: false, message: `❌ Payment failed: ${data.message || 'Cancelled'}` });
           setIsWaitingForPin(false);
@@ -391,18 +391,25 @@ export default function PayPage() {
         position: "relative"
       }}>
         {isSuccess ? (
-          <div style={{ textAlign: "center", padding: "60px 20px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
-            <div style={{ backgroundColor: "#ecfdf5", padding: "24px", borderRadius: "50%", marginBottom: "24px" }}>
-              <CheckCircle2 style={{ color: "#10b981", width: "80px", height: "80px" }} />
+          <div style={{ textAlign: "center", padding: "40px 20px", flex: 1, display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ backgroundColor: "#10b981", color: "white", width: "100%", padding: "16px", borderRadius: "12px", marginBottom: "32px", fontWeight: "900", textTransform: "uppercase", fontSize: "18px" }}>
+                ✅ Payment Confirmed!
             </div>
-            <h1 style={{ fontSize: "32px", fontWeight: "900", color: "#111827", marginBottom: "16px" }}>Payment Received!</h1>
-            <p style={{ color: "#4b5563", fontSize: "16px", marginBottom: "32px" }}>
-              Your internet is being activated...
+            <h1 style={{ fontSize: "28px", fontWeight: "900", color: "#111827", marginBottom: "8px" }}>You are Online! 🚀</h1>
+            <p style={{ color: "#4b5563", fontSize: "14px", marginBottom: "24px" }}>
+              Your internet has been activated. If not connected, click below:
             </p>
 
-            <div style={{ backgroundColor: "#f3f4f6", padding: "20px", borderRadius: "16px", width: "100%", marginBottom: "40px" }}>
-              <p style={{ fontSize: "12px", color: "#6b7280", fontWeight: "800", textTransform: "uppercase", marginBottom: "8px" }}>Auto-Login Code</p>
-              <div style={{ fontSize: "32px", fontWeight: "900", color: "#111827", letterSpacing: "2px" }}>{purchasedVoucher}</div>
+            <button
+                onClick={() => loginRouter(purchasedVoucher)}
+                style={{ width: "100%", backgroundColor: "#111827", color: "white", padding: "18px", borderRadius: "14px", border: "none", fontWeight: "900", fontSize: "16px", marginBottom: "32px", cursor: "pointer", boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }}
+            >
+                CONNECT TO INTERNET
+            </button>
+
+            <div style={{ backgroundColor: "#f3f4f6", padding: "20px", borderRadius: "16px", width: "100%", marginBottom: "40px", border: "2px dashed #cbd5e1" }}>
+              <p style={{ fontSize: "11px", color: "#6b7280", fontWeight: "800", textTransform: "uppercase", marginBottom: "8px" }}>Your WiFi Access Code</p>
+              <div style={{ fontSize: "36px", fontStyle: "normal", fontWeight: "900", color: "#111827", letterSpacing: "4px" }}>{purchasedVoucher}</div>
             </div>
 
             {/* LIVE COUNTDOWN TIMER */}
@@ -419,7 +426,7 @@ export default function PayPage() {
               </div>
             )}
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px", width: "100%" }}>
                 {!showTvConnect ? (
                     <button onClick={() => setShowTvConnect(true)} style={{ width: "100%", backgroundColor: "#1e293b", color: "#fff", padding: "16px", borderRadius: "14px", border: "none", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}>📺 Connect a Smart TV</button>
                 ) : (
@@ -428,16 +435,20 @@ export default function PayPage() {
                         <button type="submit" style={{ width: "100%", backgroundColor: "#334155", color: "white", padding: "12px", borderRadius: "10px", border: "none", fontWeight: "700" }}>Connect TV</button>
                     </form>
                 )}
-                {!showRefer ? (
-                    <button onClick={() => setShowRefer(true)} style={{ width: "100%", backgroundColor: "#f5f3ff", color: "#6366f1", padding: "16px", borderRadius: "14px", border: "1px solid #e0e7ff", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}>🎁 Gift 30 mins to a Friend</button>
-                ) : (
-                    <form onSubmit={handleReferral} style={{ backgroundColor: "#f8fafc", padding: "16px", borderRadius: "16px", border: "1px solid #e2e8f0", width: "100%" }}>
+
+                {/* AUTOMATED REFERRAL BOX */}
+                <div style={{ width: "100%" }}>
+                    <div style={{ textAlign: "left", marginBottom: "12px", padding: "0 8px" }}>
+                        <p style={{ fontSize: "14px", fontWeight: "800", color: "#6366f1", margin: 0 }}>🎁 SURPRISE GIFT!</p>
+                        <p style={{ fontSize: "12px", color: "#6b7280", margin: 0 }}>Gift 30 mins to a friend for FREE</p>
+                    </div>
+                    <form onSubmit={handleReferral} style={{ backgroundColor: "#f8fafc", padding: "16px", borderRadius: "20px", border: "2px solid #e0e7ff", width: "100%" }}>
                         <div style={{ display: "flex", gap: "8px" }}>
-                            <input type="tel" placeholder="07XXXXXXXX" value={referPhone} onChange={e => setReferPhone(e.target.value)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "14px" }} required />
-                            <button type="submit" style={{ backgroundColor: "#6366f1", color: "white", padding: "12px 20px", borderRadius: "10px", border: "none", fontWeight: "700" }}>Send</button>
+                            <input type="tel" placeholder="Friend's Phone" value={referPhone} onChange={e => setReferPhone(e.target.value)} style={{ flex: 1, padding: "12px", borderRadius: "12px", border: "1px solid #cbd5e1", fontSize: "14px", outline: "none" }} required />
+                            <button type="submit" style={{ backgroundColor: "#6366f1", color: "white", padding: "12px 20px", borderRadius: "12px", border: "none", fontWeight: "700" }}>SEND</button>
                         </div>
                     </form>
-                )}
+                </div>
             </div>
 
             <div className="spinner" style={{ width: "32px", height: "32px", border: "3px solid #f3f4f6", borderTop: "3px solid #10b981", marginTop: "32px" }}></div>
