@@ -241,19 +241,20 @@ export default function PayPage() {
         if (text.toLowerCase().includes('<html')) return;
 
         const data = JSON.parse(text);
-        if (data.success) {
+        if (data.success || data.redirectNeeded) {
+          console.log("Payment Verified! Switching to Success Screen...");
           setPurchasedVoucher(data.voucherCode);
           setIsSuccess(true);
           setIsWaitingForPin(false);
-          setLoading(false); // Fix hang
+          setLoading(false);
           localStorage.removeItem('active_checkout_ref');
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
 
-          // Show referral after a small delay
-          setTimeout(() => setShowRefer(true), 3000);
-
           // Force instant login
           loginRouter(data.voucherCode);
+
+          // Show referral gift box immediately
+          setTimeout(() => setShowRefer(true), 1000);
         } else if (data.status === 'failed') {
           setStatus({ success: false, message: `❌ Payment failed: ${data.message || 'Cancelled'}` });
           setIsWaitingForPin(false);

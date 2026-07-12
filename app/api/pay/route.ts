@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     const amountInMinorUnits = Math.round(price * 100);
 
     // FORCE PRODUCTION DOMAIN: Prevent redirecting to Vercel
-    const productionUrl = 'https://starlinkwifinet.duckdns.org';
+    const productionUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://starlinkwifinet.duckdns.org';
     const callbackUrl = new URL(productionUrl);
     if (mac) callbackUrl.searchParams.set('mac', mac);
     if (ip) callbackUrl.searchParams.set('ip', ip);

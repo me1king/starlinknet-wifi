@@ -20,10 +20,12 @@ export async function GET(req: NextRequest) {
     });
 
     if (payment && payment.voucherCode !== 'PENDING') {
+      console.log(`[Verify] Payment found in DB for ${reference}: ${payment.voucherCode}`);
       return NextResponse.json({
         success: true,
         voucherCode: payment.voucherCode,
-        status: payment.status
+        status: payment.status,
+        redirectNeeded: true
       });
     }
 
