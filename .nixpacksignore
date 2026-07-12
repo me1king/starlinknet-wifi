@@ -9,3 +9,6 @@ gradlew.bat
 local.properties
 settings.gradle
 variables.gradle
+node_modules
+.next
+.git

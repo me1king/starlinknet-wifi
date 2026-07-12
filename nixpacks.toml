@@ -1,0 +1,21 @@
+# FORCE NODE.JS - DISABLE GRADLE/ANDROID
+providers = ["node"]
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "chromium", "openssl"]
+
+[phases.install]
+# SKIP MASSIVE DOWNLOADS: Tell Puppeteer to use the system Chromium
+cmds = ["PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm install --prefer-offline --no-audit --legacy-peer-deps"]
+
+[phases.build]
+cmds = ["npx prisma generate", "npm run build"]
+
+[start]
+cmd = "node scripts/whatsapp-bridge.cjs & npm run start"
+
+[variables]
+# Explicitly point Puppeteer to the system Chromium path on Railway/Coolify
+PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
+NODE_ENV = "production"
