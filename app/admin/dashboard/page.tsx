@@ -55,6 +55,9 @@ export default function AdminDashboard() {
   const [inspectingUser, setInspectingUser] = useState<any>(null);
   const [inspectData, setInspectData] = useState<any>(null);
   const [inspectLoading, setInspectLoading] = useState(false);
+  const [routerLogs, setRouterLogs] = useState<any[]>([]);
+  const [showLogs, setShowLogs] = useState(false);
+  const [adBlockEnabled, setAdBlockEnabled] = useState(false);
   const [trafficHistory, setTrafficHistory] = useState<any[]>([]);
   const [rogueDevices, setRogueDevices] = useState<any[]>([]);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
@@ -360,6 +363,39 @@ export default function AdminDashboard() {
         setRogueDevices(rogues);
         if (rogues.length > 0) playSound('alert');
     } catch (e) {}
+  };
+
+  const fetchRouterLogs = async () => {
+    try {
+        const res = await fetch(`/api/admin/router/logs?siteId=${selectedSite}`);
+        const data = await res.json();
+        if (res.ok) setRouterLogs(data);
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    if (showLogs) {
+        fetchRouterLogs();
+        const int = setInterval(fetchRouterLogs, 5000);
+        return () => clearInterval(int);
+    }
+  }, [showLogs, selectedSite]);
+
+  const handleToggleAdBlock = async () => {
+    const nextState = !adBlockEnabled;
+    setActionLoading(true);
+    try {
+        const res = await fetch('/api/admin/router/dns-block', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ siteId: selectedSite, enabled: nextState })
+        });
+        if (res.ok) {
+            setAdBlockEnabled(nextState);
+            alert(nextState ? "🛡️ Clean Web Active! Ads are now blocked network-wide." : "🌐 Standard DNS Restored.");
+        }
+    } catch (e) { alert("Action failed."); }
+    finally { setActionLoading(false); }
   };
 
   const handleUpdateSettings = async (e: React.FormEvent) => {
@@ -1047,12 +1083,19 @@ export default function AdminDashboard() {
             </div>
 
             {/* --- SYSTEM HEALTH & TOOLS --- */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <button onClick={handleRunSpeedTest} className="bg-[#11141b] p-4 rounded-2xl border border-gray-800 hover:border-indigo-500/50 transition-all flex items-center gap-3">
-                <Zap className="w-5 h-5 text-amber-500" />
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <button onClick={() => setShowLogs(!showLogs)} className={`bg-[#11141b] p-4 rounded-2xl border transition-all flex items-center gap-3 ${showLogs ? 'border-indigo-500 bg-indigo-500/5' : 'border-gray-800 hover:border-indigo-500/50'}`}>
+                <List className={`w-5 h-5 ${showLogs ? 'text-indigo-500' : 'text-indigo-500'}`} />
                 <div className="text-left">
-                  <p className="text-[10px] font-black uppercase text-white">Speed Test</p>
-                  <p className="text-[8px] text-gray-500 uppercase">Check Bandwidth</p>
+                  <p className="text-[10px] font-black uppercase text-white">Log Sniper</p>
+                  <p className="text-[8px] text-gray-500 uppercase">{showLogs ? 'Live Terminal ON' : 'Watch router logs'}</p>
+                </div>
+              </button>
+              <button onClick={handleToggleAdBlock} className={`bg-[#11141b] p-4 rounded-2xl border transition-all flex items-center gap-3 ${adBlockEnabled ? 'border-emerald-500 bg-emerald-500/5' : 'border-gray-800 hover:border-emerald-500/50'}`}>
+                <ShieldAlert className={`w-5 h-5 ${adBlockEnabled ? 'text-emerald-500' : 'text-emerald-500'}`} />
+                <div className="text-left">
+                  <p className="text-[10px] font-black uppercase text-white">Clean Web</p>
+                  <p className="text-[8px] text-gray-500 uppercase">{adBlockEnabled ? 'Ad-Block ACTIVE' : 'Enable DNS Block'}</p>
                 </div>
               </button>
               <button onClick={() => { setShowRoguePanel(!showRoguePanel); if(!showRoguePanel) fetchRogueDevices(); }} className={`bg-[#11141b] p-4 rounded-2xl border transition-all flex items-center gap-3 ${showRoguePanel ? 'border-red-500 bg-red-500/5' : 'border-gray-800 hover:border-red-500/50'}`}>
@@ -1060,13 +1103,6 @@ export default function AdminDashboard() {
                 <div className="text-left">
                   <p className="text-[10px] font-black uppercase text-white">Rogue Scanner</p>
                   <p className="text-[8px] text-gray-500 uppercase">{rogueDevices.length > 0 ? `${rogueDevices.length} Unauthorized` : 'Detect intruders'}</p>
-                </div>
-              </button>
-              <button onClick={handleCreateBackup} className="bg-[#11141b] p-4 rounded-2xl border border-gray-800 hover:border-emerald-500/50 transition-all flex items-center gap-3">
-                <Database className="w-5 h-5 text-emerald-500" />
-                <div className="text-left">
-                  <p className="text-[10px] font-black uppercase text-white">Cloud Backup</p>
-                  <p className="text-[8px] text-gray-500 uppercase">Save Config</p>
                 </div>
               </button>
               <button onClick={handleReconcile} className="bg-[#11141b] p-4 rounded-2xl border border-gray-800 hover:border-indigo-500/50 transition-all flex items-center gap-3">
@@ -1084,6 +1120,39 @@ export default function AdminDashboard() {
                 </div>
               </button>
             </div>
+
+            {/* LOG SNIPER TERMINAL */}
+            {showLogs && (
+                <div className="bg-black rounded-3xl border border-indigo-500/30 overflow-hidden shadow-2xl animate-in slide-in-from-top-4 duration-300">
+                    <div className="bg-gray-900 px-6 py-3 border-b border-gray-800 flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                            <div className="flex gap-1.5">
+                                <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                            </div>
+                            <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Router Console :: {routerInfo.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[8px] font-black text-emerald-500 uppercase">Live Stream</span>
+                        </div>
+                    </div>
+                    <div className="p-6 h-64 overflow-y-auto font-mono text-[10px] space-y-1 custom-scrollbar bg-[#05070a]">
+                        {routerLogs.length === 0 ? (
+                            <p className="text-gray-700 animate-pulse">Establishing secure link to MikroTik logs...</p>
+                        ) : (
+                            routerLogs.map((log, i) => (
+                                <div key={i} className="flex gap-4 group">
+                                    <span className="text-gray-600 shrink-0">{log.time}</span>
+                                    <span className="text-indigo-500/70 shrink-0">[{log.topics}]</span>
+                                    <span className="text-gray-300 group-hover:text-white transition-colors">{log.message}</span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* --- NOC REAL-TIME ANALYTICS --- */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
