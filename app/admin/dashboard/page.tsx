@@ -51,6 +51,7 @@ export default function AdminDashboard() {
   const [manualPhone, setManualPhone] = useState('');
   const [debugLog, setDebugLog] = useState<string[]>([]);
   const [sessionTimers, setSessionTimers] = useState<Record<string, string>>({});
+  const [lastCleanup, setLastCleanup] = useState<string | null>(null);
 
   // Helper to decrement MikroTik time format (HH:MM:SS)
   const decrementTime = (timeStr: string) => {
@@ -279,6 +280,20 @@ export default function AdminDashboard() {
             alert("✅ Airspace Scan Complete!");
             fetchData(false);
         } else alert("❌ Scan failed.");
+    } catch (e) { alert("Network error."); }
+    finally { setActionLoading(false); }
+  };
+
+  const handleGhostBuster = async () => {
+    setActionLoading(true);
+    try {
+        const res = await fetch(`/api/cron/idle-cleanup?siteId=${selectedSite}`);
+        const data = await res.json();
+        if (res.ok) {
+            setLastCleanup(new Date().toLocaleTimeString());
+            alert(`✅ Ghost Buster Complete!\n\nKicked ${data.kickedCount} idle users out of ${data.totalChecked} active sessions.`);
+            fetchData(false);
+        } else alert("❌ Ghost Buster failed.");
     } catch (e) { alert("Network error."); }
     finally { setActionLoading(false); }
   };
@@ -771,6 +786,13 @@ export default function AdminDashboard() {
                 <div className="text-left">
                   <p className="text-[10px] font-black uppercase text-white">Reconcile</p>
                   <p className="text-[8px] text-gray-500 uppercase">Manual Provision</p>
+                </div>
+              </button>
+              <button onClick={handleGhostBuster} className="bg-[#11141b] p-4 rounded-2xl border border-gray-800 hover:border-purple-500/50 transition-all flex items-center gap-3">
+                <LayoutDashboard className="w-5 h-5 text-purple-500" />
+                <div className="text-left">
+                  <p className="text-[10px] font-black uppercase text-white">Ghost Buster</p>
+                  <p className="text-[8px] text-gray-500 uppercase">{lastCleanup ? `Last: ${lastCleanup}` : 'Clear Idle Users'}</p>
                 </div>
               </button>
             </div>
