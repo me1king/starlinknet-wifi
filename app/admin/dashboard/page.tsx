@@ -52,6 +52,9 @@ export default function AdminDashboard() {
   const [debugLog, setDebugLog] = useState<string[]>([]);
   const [sessionTimers, setSessionTimers] = useState<Record<string, string>>({});
   const [lastCleanup, setLastCleanup] = useState<string | null>(null);
+  const [inspectingUser, setInspectingUser] = useState<any>(null);
+  const [inspectData, setInspectData] = useState<any>(null);
+  const [inspectLoading, setInspectLoading] = useState(false);
   const [trafficHistory, setTrafficHistory] = useState<any[]>([]);
   const [rogueDevices, setRogueDevices] = useState<any[]>([]);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
@@ -374,6 +377,33 @@ export default function AdminDashboard() {
         alert(`❌ Failed to publish: ${data.error || 'Unknown error'}`);
       }
     } catch (err) { alert("❌ Error connecting to server."); }
+    finally { setActionLoading(false); }
+  };
+
+  const handleInspectUser = async (user: any) => {
+    setInspectingUser(user);
+    setInspectLoading(true);
+    setInspectData(null);
+    try {
+        const res = await fetch(`/api/admin/router/inspect?siteId=${selectedSite}&macAddress=${user.macAddress}&voucherCode=${user.voucherCode}`);
+        const data = await res.json();
+        if (res.ok) setInspectData(data);
+    } catch (e) {}
+    finally { setInspectLoading(false); }
+  };
+
+  const handleVipBypass = async (macAddress: string) => {
+    if (!confirm(`Enable LIFETIME Capture Portal Bypass for ${macAddress}?`)) return;
+    setActionLoading(true);
+    try {
+        const res = await fetch('/api/admin/router/bypass', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ macAddress, siteId: selectedSite, action: 'bypass' })
+        });
+        if (res.ok) alert("✅ VIP Access Granted! Device will never see Captive Portal again.");
+        else alert("❌ Bypass failed.");
+    } catch (e) { alert("Action failed."); }
     finally { setActionLoading(false); }
   };
 
@@ -1358,9 +1388,9 @@ export default function AdminDashboard() {
                                         </td>
                                         <td className="p-4 text-gray-600 font-bold uppercase">{s.packageName}</td>
                                         <td className="p-4 text-right flex gap-2 justify-end">
+                                            <button onClick={() => handleInspectUser(s)} className="bg-indigo-600/10 text-indigo-400 hover:bg-indigo-600 hover:text-white px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all">🔎 Inspect</button>
                                             <button onClick={() => handleExtendTime(s.voucherCode)} className="bg-indigo-600/5 text-indigo-400 hover:bg-indigo-600 hover:text-white px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all">+TIME</button>
                                             <button onClick={() => handleKickUser(s.voucherCode)} className="bg-red-600/5 text-red-500 hover:bg-red-600 hover:text-white px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all">KICK</button>
-                                            <button onClick={() => handleBlockDevice(s.macAddress, s.voucherCode)} className="bg-black text-white hover:bg-red-900 px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all">BLOCK</button>
                                         </td>
                                     </tr>
                                 ))}
@@ -1548,6 +1578,77 @@ export default function AdminDashboard() {
                   </div>
               )}
           </div>
+        )}
+
+        {/* USER INSPECTOR X-RAY MODAL */}
+        {inspectingUser && (
+            <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-6 backdrop-blur-md">
+                <div className="bg-[#0f1218] border border-indigo-500/20 w-full max-w-xl rounded-[40px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                    <div className="bg-gradient-to-r from-indigo-900/50 to-black p-8 flex justify-between items-center border-b border-gray-800">
+                        <div>
+                            <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Support X-Ray</h2>
+                            <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest mt-1">Live Router Diagnostics</p>
+                        </div>
+                        <button onClick={() => setInspectingUser(null)} className="p-3 bg-gray-900 rounded-2xl hover:bg-gray-800 transition-colors"><XCircle className="w-6 h-6 text-gray-500" /></button>
+                    </div>
+
+                    <div className="p-8 space-y-8">
+                        {/* Device Info Header */}
+                        <div className="flex items-center gap-6">
+                            <div className="p-5 bg-indigo-500/10 rounded-3xl">
+                                <Smartphone className="w-10 h-10 text-indigo-500" />
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-xl font-black text-white">{inspectingUser.voucherCode}</p>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{inspectingUser.macAddress} • {inspectingUser.ipAddress}</p>
+                            </div>
+                            <div className="text-right">
+                                <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${inspectData ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500 animate-pulse'}`}>
+                                    {inspectLoading ? 'Scanning...' : 'Connected'}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Diagnostic Stats */}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-gray-950 p-6 rounded-3xl border border-gray-800">
+                                <p className="text-[9px] font-black text-gray-600 uppercase mb-2">Live Router Ping</p>
+                                <div className="flex items-center gap-3">
+                                    <Activity className={`w-5 h-5 ${inspectData?.ping?.alive ? 'text-emerald-500' : 'text-gray-700'}`} />
+                                    <p className="text-lg font-black text-white">{inspectData?.ping?.alive ? `${inspectData.ping.avgRtt}` : '---'}</p>
+                                </div>
+                            </div>
+                            <div className="bg-gray-950 p-6 rounded-3xl border border-gray-800">
+                                <p className="text-[9px] font-black text-gray-600 uppercase mb-2">Session Traffic</p>
+                                <div className="flex items-center gap-3">
+                                    <ArrowUpRight className="w-5 h-5 text-indigo-500" />
+                                    <p className="text-lg font-black text-white">
+                                        {inspectData ? `${((parseInt(inspectData['bytes-in']) + parseInt(inspectData['bytes-out'])) / (1024*1024)).toFixed(1)} MB` : '---'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Customer Support Controls */}
+                        <div className="grid grid-cols-2 gap-4 pt-4">
+                            <button
+                                onClick={() => { handleExtendTime(inspectingUser.voucherCode); setInspectingUser(null); }}
+                                className="bg-emerald-600 hover:bg-emerald-500 text-white p-5 rounded-3xl font-black uppercase text-[11px] shadow-lg shadow-emerald-900/10 transition-all flex flex-col items-center gap-2"
+                            >
+                                <Zap className="w-5 h-5" />
+                                <span>Add 15m Free</span>
+                            </button>
+                            <button
+                                onClick={() => handleVipBypass(inspectingUser.macAddress)}
+                                className="bg-indigo-600 hover:bg-indigo-500 text-white p-5 rounded-3xl font-black uppercase text-[11px] shadow-lg shadow-indigo-900/10 transition-all flex flex-col items-center gap-2"
+                            >
+                                <Globe className="w-5 h-5" />
+                                <span>VIP Bypass</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         )}
 
         <style jsx global>{`

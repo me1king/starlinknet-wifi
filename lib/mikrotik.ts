@@ -382,6 +382,7 @@ export {
   banMikrotikDevice,
   setTetheringBlock,
   rebootMikrotik,
-  getDhcpLeases
+  getDhcpLeases,
+  executeRestCommand
 };
 export type { MikrotikConfig, VoucherCreationResult };
