@@ -274,6 +274,35 @@ async function getMikrotikTraffic(siteId?: string, interfaceName: string = 'ethe
   }
 }
 
+async function rebootMikrotik(siteId?: string) {
+  try {
+    const config = await getMikrotikConfig(siteId);
+    if (config.port === 80 || config.port === 443) {
+      await executeRestCommand('/system/reboot', 'POST', {}, siteId);
+      return { success: true };
+    }
+    // Fallback to legacy reboot if port 80/443 not used
+    await executeLegacyCommand(['/system/reboot'], siteId);
+    return { success: true };
+  } catch (e: any) {
+    // Reboot usually kills the connection so an error is actually a "Success"
+    if (e.message?.includes('socket') || e.message?.includes('aborted') || e.message?.includes('timeout')) {
+      return { success: true };
+    }
+    throw e;
+  }
+}
+
+async function getDhcpLeases(siteId?: string) {
+  try {
+    const data = await executeRestCommand('/ip/dhcp-server/lease', 'GET', undefined, siteId);
+    return data;
+  } catch (e: any) {
+    // Basic fallback or empty list
+    return [];
+  }
+}
+
 async function activateHotspotSession(mac: string, ip: string, code: string, siteId?: string) {
   try {
       const body = { user: code, 'mac-address': mac, address: ip, server: 'hotspot1' };
@@ -351,6 +380,8 @@ export {
   getMikrotikExport,
   scanForRogueAPs,
   banMikrotikDevice,
-  setTetheringBlock
+  setTetheringBlock,
+  rebootMikrotik,
+  getDhcpLeases
 };
 export type { MikrotikConfig, VoucherCreationResult };

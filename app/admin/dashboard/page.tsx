@@ -52,6 +52,35 @@ export default function AdminDashboard() {
   const [debugLog, setDebugLog] = useState<string[]>([]);
   const [sessionTimers, setSessionTimers] = useState<Record<string, string>>({});
   const [lastCleanup, setLastCleanup] = useState<string | null>(null);
+  const [trafficHistory, setTrafficHistory] = useState<any[]>([]);
+  const [rogueDevices, setRogueDevices] = useState<any[]>([]);
+  const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
+  const [tableFilter, setTableFilter] = useState('ALL');
+  const [showRoguePanel, setShowRoguePanel] = useState(false);
+
+  // AUDIO CUES
+  const playSound = (type: 'success' | 'alert') => {
+    try {
+        const audio = new Audio(type === 'success'
+            ? 'https://assets.mixkit.co/active_storage/sfx/2013/2013-preview.mp3'
+            : 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3');
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+    } catch (e) {}
+  };
+
+  // NOTIFICATIONS
+  const sendNotification = (title: string, body: string) => {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(title, { body });
+    }
+  };
+
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
 
   // Helper to decrement MikroTik time format (HH:MM:SS)
   const decrementTime = (timeStr: string) => {
@@ -114,7 +143,14 @@ export default function AdminDashboard() {
 
       // 1. Load basic UI essentials first (FAST)
       const metr = await safeFetch(`/api/admin/metrics?siteId=${selectedSite}`);
-      if (metr) setMetrics(metr);
+      if (metr) {
+          // Detect new payment success for notification/sound
+          if (metrics.totalRevenue > 0 && metr.totalRevenue > metrics.totalRevenue) {
+              playSound('success');
+              sendNotification("💰 New Payment Success!", `Total Revenue: KES ${metr.totalRevenue}`);
+          }
+          setMetrics(metr);
+      }
 
       const offr = await safeFetch(`/api/admin/offers?siteId=${selectedSite}`);
       if (offr) setOffers(offr);
@@ -136,16 +172,25 @@ export default function AdminDashboard() {
             }
         }),
         safeFetch(`/api/admin/router/system-info?siteId=${selectedSite}`).then(sys => {
-            if (sys && !sys.error) setRouterInfo({
-                cpu: parseInt(sys['cpu-load']) || 0,
-                memory: sys['free-memory'] ? `${(parseInt(sys['free-memory']) / (1024 * 1024)).toFixed(1)} MB` : '0 MB',
-                uptime: sys.uptime || '0s',
-                isOnline: true,
-                boardName: sys['board-name'] || 'RouterBoard',
-                version: sys.version || '7.x',
-                model: sys.model || 'Unknown',
-                name: sys.name || 'MikroTik'
-            });
+            if (sys && !sys.error) {
+                const cpu = parseInt(sys['cpu-load']) || 0;
+                // High CPU Notification
+                if (cpu > 90 && routerInfo.cpu <= 90) {
+                    playSound('alert');
+                    sendNotification("⚠️ High Router Load", `CPU Usage is at ${cpu}%. Performance may be degraded.`);
+                }
+
+                setRouterInfo({
+                    cpu,
+                    memory: sys['free-memory'] ? `${(parseInt(sys['free-memory']) / (1024 * 1024)).toFixed(1)} MB` : '0 MB',
+                    uptime: sys.uptime || '0s',
+                    isOnline: true,
+                    boardName: sys['board-name'] || 'RouterBoard',
+                    version: sys.version || '7.x',
+                    model: sys.model || 'Unknown',
+                    name: sys.name || 'MikroTik'
+                });
+            }
             else setRouterInfo((prev: any) => ({ ...prev, isOnline: false }));
         }),
         safeFetch(`/api/admin/analytics/revenue?siteId=${selectedSite}`).then(ana => {
@@ -190,11 +235,18 @@ export default function AdminDashboard() {
     const fetchTraffic = async () => {
       try {
         const res = await fetch(`/api/admin/router/traffic?siteId=${selectedSite}`, {
-          signal: AbortSignal.timeout(5000) // 5 second timeout for traffic
+          signal: AbortSignal.timeout(5000)
         });
         if (res.ok) {
           const data = await res.json();
           setLiveTraffic({ rx: data.rx, tx: data.tx });
+
+          // Update Traffic History (Keep last 20 points)
+          setTrafficHistory(prev => [...prev, {
+            rx: data.rx,
+            tx: data.tx,
+            time: new Date().toLocaleTimeString([], { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+          }].slice(-20));
         }
       } catch (e) {}
     };
@@ -204,10 +256,108 @@ export default function AdminDashboard() {
     return () => clearInterval(int);
   }, [selectedSite]);
 
-  useEffect(() => {
-    const int = setInterval(() => fetchData(false), 20000);
-    return () => clearInterval(int);
-  }, [fetchData]);
+  const handleReboot = async () => {
+    if (!confirm("⚠️ WARNING: This will DISCONNECT EVERYONE and restart the router. Proceed?")) return;
+    if (!confirm("Are you REALLY sure? Network will be down for 2-3 minutes.")) return;
+
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/admin/router/reboot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteId: selectedSite })
+      });
+      if (res.ok) {
+        alert("🚀 Reboot signal sent! The dashboard will disconnect shortly.");
+        setRouterInfo(prev => ({ ...prev, isOnline: false }));
+      }
+    } catch (e) {
+      alert("❌ Reboot command failed.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleExportCSV = () => {
+    try {
+      const data = activeSessions.map(s => ({
+        Voucher: s.voucherCode,
+        MAC: s.macAddress,
+        IP: s.ipAddress,
+        Uptime: s.uptime,
+        TimeLeft: s.timeLeft,
+        UsageMB: ((parseInt(s.bytesIn || '0') + parseInt(s.bytesOut || '0')) / (1024 * 1024)).toFixed(2),
+        Package: s.packageName
+      }));
+
+      if (data.length === 0) return alert("No data to export");
+
+      const headers = Object.keys(data[0]).join(',');
+      const rows = data.map(obj => Object.values(obj).join(',')).join('\n');
+      const csv = `${headers}\n${rows}`;
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('hidden', '');
+      a.setAttribute('href', url);
+      a.setAttribute('download', `StarlinkNet_Users_${new Date().toLocaleDateString()}.csv`);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) { alert("Export failed."); }
+  };
+
+  const handleBulkAction = async (action: 'kick' | 'time') => {
+    if (selectedSessions.size === 0) return;
+    const ids = Array.from(selectedSessions);
+
+    let mins = "0";
+    if (action === 'time') {
+        mins = prompt("Add minutes to selected users:", "15") || "0";
+        if (mins === "0") return;
+    } else {
+        if (!confirm(`Disconnect ${ids.length} users?`)) return;
+    }
+
+    setActionLoading(true);
+    try {
+        const promises = ids.map(code =>
+            fetch(action === 'kick' ? '/api/admin/router/kick' : '/api/admin/router/extend-time', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    voucherCode: code,
+                    username: code,
+                    minutes: parseInt(mins),
+                    siteId: selectedSite
+                })
+            })
+        );
+        await Promise.all(promises);
+        setSelectedSessions(new Set());
+        fetchData(false);
+        alert(`✅ Bulk ${action} complete!`);
+    } catch (e) { alert("Bulk action failed."); }
+    finally { setActionLoading(false); }
+  };
+
+  const fetchRogueDevices = async () => {
+    try {
+        const [leasesRes, activeRes] = await Promise.all([
+            fetch(`/api/admin/router/dhcp-leases?siteId=${selectedSite}`),
+            fetch(`/api/admin/router/active-users?siteId=${selectedSite}`)
+        ]);
+        const leases = await leasesRes.json();
+        const active = await activeRes.json();
+
+        const activeMacs = new Set(active.map((s: any) => s.macAddress?.toUpperCase()));
+        const rogues = leases.filter((l: any) => !activeMacs.has(l['mac-address']?.toUpperCase()));
+
+        setRogueDevices(rogues);
+        if (rogues.length > 0) playSound('alert');
+    } catch (e) {}
+  };
 
   const handleUpdateSettings = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -502,6 +652,105 @@ export default function AdminDashboard() {
     </div>
   );
 
+  // Helper Components
+  const TrafficGraph = () => {
+    const maxVal = Math.max(...trafficHistory.map(h => Math.max(h.rx, h.tx)), 1000000);
+    const height = 120;
+    const width = 400;
+
+    const getPoints = (key: 'rx' | 'tx') => {
+        return trafficHistory.map((h, i) => {
+            const x = (i / 19) * width;
+            const y = height - (h[key] / maxVal) * height;
+            return `${x},${y}`;
+        }).join(' ');
+    };
+
+    return (
+        <div className="bg-black/40 rounded-2xl p-4 border border-gray-800">
+            <div className="flex justify-between items-center mb-3">
+                <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Live Bandwidth (Mbps)</p>
+                <div className="flex gap-4">
+                    <span className="text-[8px] font-black text-emerald-500 uppercase flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> RX
+                    </span>
+                    <span className="text-[8px] font-black text-indigo-500 uppercase flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full" /> TX
+                    </span>
+                </div>
+            </div>
+            <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible">
+                {/* Background Grid */}
+                <line x1="0" y1="0" x2={width} y2="0" stroke="#1f2937" strokeWidth="0.5" strokeDasharray="2,2" />
+                <line x1="0" y1={height/2} x2={width} y2={height/2} stroke="#1f2937" strokeWidth="0.5" strokeDasharray="2,2" />
+                <line x1="0" y1={height} x2={width} y2={height} stroke="#374151" strokeWidth="1" />
+
+                {/* RX Path */}
+                <polyline
+                    fill="none"
+                    stroke="#10b981"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                    points={getPoints('rx')}
+                    className="transition-all duration-500"
+                />
+
+                {/* TX Path */}
+                <polyline
+                    fill="none"
+                    stroke="#6366f1"
+                    strokeWidth="2"
+                    strokeLinejoin="round"
+                    points={getPoints('tx')}
+                    className="transition-all duration-500"
+                />
+            </svg>
+            <div className="flex justify-between mt-2 text-[7px] text-gray-600 font-bold uppercase">
+                <span>{trafficHistory[0]?.time || '--:--'}</span>
+                <span>NOW</span>
+            </div>
+        </div>
+    );
+  };
+
+  const RevenueHeatmap = () => {
+    // Generate 24 slots for 24 hours
+    const hours = Array.from({length: 24}, (_, i) => i);
+    const hourlyData = new Array(24).fill(0);
+
+    metrics.recentPayments?.forEach((p: any) => {
+        const h = new Date(p.createdAt || Date.now()).getHours();
+        hourlyData[h] += p.amount;
+    });
+
+    const maxRev = Math.max(...hourlyData, 100);
+
+    return (
+        <div className="bg-[#11141b] p-6 rounded-3xl border border-gray-800 shadow-xl">
+            <h3 className="text-[10px] font-black uppercase text-indigo-400 mb-4 tracking-widest">Revenue Density (24H)</h3>
+            <div className="h-32 flex items-end gap-1 px-1">
+                {hours.map(h => {
+                    const height = (hourlyData[h] / maxRev) * 100;
+                    return (
+                        <div key={h} className="flex-1 group relative">
+                            <div
+                                className={`w-full rounded-t-sm transition-all duration-500 ${hourlyData[h] > 0 ? 'bg-indigo-500/40 hover:bg-indigo-500' : 'bg-gray-900/30'}`}
+                                style={{ height: `${Math.max(5, height)}%` }}
+                            />
+                            <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-950 px-2 py-1 rounded text-[8px] font-black border border-gray-800 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-50">
+                                {h}:00 - KES {hourlyData[h]}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+            <div className="flex justify-between mt-2 text-[7px] text-gray-700 font-black uppercase">
+                <span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>11 PM</span>
+            </div>
+        </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0c10] text-gray-100 p-6 font-sans selection:bg-indigo-500/30">
       <div className="max-w-[1600px] mx-auto">
@@ -716,9 +965,18 @@ export default function AdminDashboard() {
             <div className="bg-[#11141b] p-6 rounded-3xl border border-gray-800 shadow-lg group hover:border-indigo-500/30 transition-all">
                 <div className="flex justify-between items-start mb-4">
                   <p className="text-[10px] text-gray-500 uppercase tracking-widest font-black">Hardware Identity</p>
-                  <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${routerInfo.isOnline ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                    {routerInfo.isOnline ? 'System Linked' : 'Offline'}
-                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleReboot}
+                      disabled={actionLoading}
+                      className="bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white px-2 py-0.5 rounded text-[8px] font-black uppercase transition-all flex items-center gap-1 border border-red-500/20"
+                    >
+                      <Zap size={8} /> Nuke (Reboot)
+                    </button>
+                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${routerInfo.isOnline ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                      {routerInfo.isOnline ? 'System Linked' : 'Offline'}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="space-y-4">
@@ -767,11 +1025,11 @@ export default function AdminDashboard() {
                   <p className="text-[8px] text-gray-500 uppercase">Check Bandwidth</p>
                 </div>
               </button>
-              <button onClick={handleScanSecurity} className="bg-[#11141b] p-4 rounded-2xl border border-gray-800 hover:border-red-500/50 transition-all flex items-center gap-3">
-                <ShieldAlert className="w-5 h-5 text-red-500" />
+              <button onClick={() => { setShowRoguePanel(!showRoguePanel); if(!showRoguePanel) fetchRogueDevices(); }} className={`bg-[#11141b] p-4 rounded-2xl border transition-all flex items-center gap-3 ${showRoguePanel ? 'border-red-500 bg-red-500/5' : 'border-gray-800 hover:border-red-500/50'}`}>
+                <ShieldAlert className={`w-5 h-5 ${showRoguePanel ? 'text-red-500 animate-pulse' : 'text-red-500'}`} />
                 <div className="text-left">
-                  <p className="text-[10px] font-black uppercase text-white">Airspace Scan</p>
-                  <p className="text-[8px] text-gray-500 uppercase">Rogue AP Detection</p>
+                  <p className="text-[10px] font-black uppercase text-white">Rogue Scanner</p>
+                  <p className="text-[8px] text-gray-500 uppercase">{rogueDevices.length > 0 ? `${rogueDevices.length} Unauthorized` : 'Detect intruders'}</p>
                 </div>
               </button>
               <button onClick={handleCreateBackup} className="bg-[#11141b] p-4 rounded-2xl border border-gray-800 hover:border-emerald-500/50 transition-all flex items-center gap-3">
@@ -796,6 +1054,40 @@ export default function AdminDashboard() {
                 </div>
               </button>
             </div>
+
+            {/* --- NOC REAL-TIME ANALYTICS --- */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <TrafficGraph />
+                <RevenueHeatmap />
+            </div>
+
+            {/* ROGUE DEVICE LIST */}
+            {showRoguePanel && rogueDevices.length > 0 && (
+                <div className="bg-red-950/10 p-6 rounded-3xl border border-red-500/20 animate-in slide-in-from-top-4 duration-300">
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-sm font-black uppercase tracking-widest text-red-500 flex items-center gap-2">
+                            <AlertTriangle className="w-5 h-5" /> Unauthorized Intruder Detection
+                        </h3>
+                        <button onClick={() => fetchRogueDevices()} className="text-[10px] font-black uppercase text-red-400 hover:text-white">Refresh List</button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {rogueDevices.map((dev, i) => (
+                            <div key={i} className="bg-black/40 p-4 rounded-2xl border border-red-500/10 flex justify-between items-center group">
+                                <div>
+                                    <p className="text-xs font-black text-gray-300">{dev['mac-address']}</p>
+                                    <p className="text-[8px] text-gray-500 uppercase font-bold">{dev.address || 'Assigning IP...'}</p>
+                                </div>
+                                <button
+                                    onClick={() => handleBlockDevice(dev['mac-address'])}
+                                    className="bg-red-600 text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase opacity-0 group-hover:opacity-100 transition-all"
+                                >
+                                    Ban Permanent
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* PACKAGE OFFERS LIST */}
             <div className="bg-[#11141b] p-6 rounded-3xl border border-gray-800 shadow-xl">
@@ -968,15 +1260,84 @@ export default function AdminDashboard() {
               <div className="lg:col-span-2 space-y-8 text-xs">
                 {/* ACTIVE SESSIONS TABLE */}
                 <div className="bg-[#11141b] p-8 rounded-3xl border border-gray-800 shadow-2xl min-h-[500px]">
-                    <h3 className="text-sm font-black flex items-center gap-2 uppercase text-white mb-8 tracking-widest"><Users className="w-5 h-5 text-indigo-500" /> Active Network Leases</h3>
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                        <div>
+                            <h3 className="text-sm font-black flex items-center gap-2 uppercase text-white tracking-widest"><Users className="w-5 h-5 text-indigo-500" /> Active Network Leases</h3>
+                            <div className="flex gap-2 mt-3">
+                                {['ALL', 'EXPIRING', 'HEAVY', 'IDLE'].map(f => (
+                                    <button
+                                        key={f}
+                                        onClick={() => setTableFilter(f)}
+                                        className={`px-3 py-1 rounded-lg text-[8px] font-black uppercase transition-all ${tableFilter === f ? 'bg-indigo-600 text-white' : 'bg-gray-900 text-gray-500 hover:text-white'}`}
+                                    >
+                                        {f}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="flex gap-3">
+                            {selectedSessions.size > 0 && (
+                                <div className="flex gap-2 animate-in slide-in-from-right-4 duration-300">
+                                    <button onClick={() => handleBulkAction('time')} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase flex items-center gap-2 shadow-lg shadow-indigo-500/20">
+                                        <Clock size={12} /> +Time ({selectedSessions.size})
+                                    </button>
+                                    <button onClick={() => handleBulkAction('kick')} className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase flex items-center gap-2 shadow-lg shadow-red-500/20">
+                                        <XCircle size={12} /> Disconnect ({selectedSessions.size})
+                                    </button>
+                                </div>
+                            )}
+                            <button onClick={handleExportCSV} className="bg-gray-900 hover:bg-gray-800 text-gray-400 hover:text-white px-4 py-2 rounded-xl text-[9px] font-black uppercase flex items-center gap-2 border border-gray-800">
+                                <Download size={12} /> Export CSV
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="bg-gray-950/50 text-[9px] text-gray-600 uppercase font-black border-b border-gray-800">
-                                <tr><th className="p-4 tracking-widest">Identity</th><th className="p-4 tracking-widest">Uptime</th><th className="p-4 tracking-widest">Time Left</th><th className="p-4 tracking-widest">Data Used</th><th className="p-4 tracking-widest">Package</th><th className="p-4 text-right tracking-widest">Actions</th></tr>
+                                <tr>
+                                    <th className="p-4 w-10">
+                                        <input
+                                            type="checkbox"
+                                            className="accent-indigo-500"
+                                            checked={selectedSessions.size === activeSessions.length && activeSessions.length > 0}
+                                            onChange={(e) => {
+                                                if (e.target.checked) setSelectedSessions(new Set(activeSessions.map(s => s.voucherCode)));
+                                                else setSelectedSessions(new Set());
+                                            }}
+                                        />
+                                    </th>
+                                    <th className="p-4 tracking-widest">Identity</th>
+                                    <th className="p-4 tracking-widest">Uptime</th>
+                                    <th className="p-4 tracking-widest">Time Left</th>
+                                    <th className="p-4 tracking-widest">Data Used</th>
+                                    <th className="p-4 tracking-widest">Package</th>
+                                    <th className="p-4 text-right tracking-widest">Actions</th>
+                                </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-800/30">
-                                {activeSessions?.map(s => (
-                                    <tr key={s.id} className="hover:bg-indigo-500/[0.03] transition-all">
+                                {activeSessions
+                                  .filter(s => {
+                                      if (tableFilter === 'EXPIRING') return sessionTimers[s.id]?.startsWith('00:0');
+                                      if (tableFilter === 'HEAVY') return (parseInt(s.bytesIn || '0') + parseInt(s.bytesOut || '0')) > 100 * 1024 * 1024;
+                                      if (tableFilter === 'IDLE') return (parseInt(s.bytesIn || '0') + parseInt(s.bytesOut || '0')) < 1 * 1024 * 1024;
+                                      return true;
+                                  })
+                                  .map(s => (
+                                    <tr key={s.id} className={`hover:bg-indigo-500/[0.03] transition-all ${selectedSessions.has(s.voucherCode) ? 'bg-indigo-500/5' : ''}`}>
+                                        <td className="p-4">
+                                            <input
+                                                type="checkbox"
+                                                className="accent-indigo-500"
+                                                checked={selectedSessions.has(s.voucherCode)}
+                                                onChange={() => {
+                                                    const next = new Set(selectedSessions);
+                                                    if (next.has(s.voucherCode)) next.delete(s.voucherCode);
+                                                    else next.add(s.voucherCode);
+                                                    setSelectedSessions(next);
+                                                }}
+                                            />
+                                        </td>
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
                                                 {s.voucherCode?.startsWith('TV-') ? <Monitor className="w-4 h-4 text-indigo-400" /> : <Smartphone className="w-4 h-4 text-gray-500" />}
