@@ -50,6 +50,36 @@ export default function AdminDashboard() {
   const [showSiteForm, setShowSiteForm] = useState(false);
   const [manualPhone, setManualPhone] = useState('');
   const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [sessionTimers, setSessionTimers] = useState<Record<string, string>>({});
+
+  // Helper to decrement MikroTik time format (HH:MM:SS)
+  const decrementTime = (timeStr: string) => {
+    if (!timeStr || timeStr === 'Unlimited' || timeStr === 'offline') return timeStr;
+    try {
+      const parts = timeStr.split(':').map(Number);
+      let totalSeconds = (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+      if (totalSeconds <= 0) return "00:00:00";
+      totalSeconds--;
+      const h = Math.floor(totalSeconds / 3600);
+      const m = Math.floor((totalSeconds % 3600) / 60);
+      const s = totalSeconds % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    } catch (e) { return timeStr; }
+  };
+
+  // Live Timer Effect: Ticks every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSessionTimers(prev => {
+        const next = { ...prev };
+        Object.keys(next).forEach(id => {
+          next[id] = decrementTime(next[id]);
+        });
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const addLog = (msg: string) => setDebugLog(prev => [msg, ...prev].slice(0, 10));
 
@@ -94,7 +124,15 @@ export default function AdminDashboard() {
       // 2. Background load heavy data (NON-BLOCKING)
       Promise.all([
         safeFetch(`/api/admin/router/active-users?siteId=${selectedSite}`).then(sess => {
-            if (sess) setActiveSessions([...sess].sort((a, b) => parseInt(b.bytesIn || '0') - parseInt(a.bytesIn || '0')));
+            if (sess) {
+                setActiveSessions([...sess].sort((a, b) => parseInt(b.bytesIn || '0') - parseInt(a.bytesIn || '0')));
+                // Initialize timers with fresh data from router
+                const initialTimers: Record<string, string> = {};
+                sess.forEach((s: any) => {
+                    initialTimers[s.id] = s.timeLeft || '00:00:00';
+                });
+                setSessionTimers(initialTimers);
+            }
         }),
         safeFetch(`/api/admin/router/system-info?siteId=${selectedSite}`).then(sys => {
             if (sys && !sys.error) setRouterInfo({
@@ -927,7 +965,11 @@ export default function AdminDashboard() {
                                             </div>
                                         </td>
                                         <td className="p-4 text-emerald-400 font-black tracking-widest uppercase">{s.uptime}</td>
-                                        <td className="p-4 text-amber-500 font-black tracking-widest uppercase">{s.timeLeft || 'Unlimited'}</td>
+                                        <td className="p-4">
+                                            <span className={`font-black tracking-widest uppercase ${sessionTimers[s.id]?.startsWith('00:0') ? 'text-red-500 animate-pulse' : 'text-amber-500'}`}>
+                                                {sessionTimers[s.id] || s.timeLeft || 'Unlimited'}
+                                            </span>
+                                        </td>
                                         <td className="p-4 text-gray-400 font-mono text-[10px]">
                                             {( (parseInt(s.bytesIn || '0') + parseInt(s.bytesOut || '0')) / (1024 * 1024) ).toFixed(1)} MB
                                         </td>
