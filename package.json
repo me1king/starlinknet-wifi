@@ -17,6 +17,7 @@
     "lucide-react": "^0.468.0",
     "mikrotik": "^1.0.12",
     "next": "^15.5.20",
+    "node-cache": "^5.1.2",
     "postcss": "^8.5.1",
     "qrcode-terminal": "^0.12.0",
     "react": "^19.1.0",

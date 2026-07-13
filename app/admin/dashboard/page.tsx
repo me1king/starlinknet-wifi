@@ -9,7 +9,7 @@ import {
   Download, List, Printer, Plus, AlertTriangle, ArrowUpRight,
   Search, MessageSquare, Globe, Monitor, Eye, DollarSign
 } from 'lucide-react';
-import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, ResponsiveContainer, YAxis } from 'recharts';
 
 export const dynamic = 'force-dynamic';
 
@@ -80,27 +80,29 @@ export default function AdminDashboard() {
     let weekRev = 0;
     let monthRev = 0;
 
-    const dailyMap: Record<string, number> = {};
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        dailyMap[d.toDateString()] = 0;
+    // Trend Data (Last 7 Days) - Robust Bucket Logic
+    const trend: {date: string, amount: number}[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      trend.push({
+        date: d.toISOString().split('T')[0],
+        amount: 0
+      });
     }
 
     payments.forEach(payment => {
-      const paymentDate = new Date(payment.createdAt || payment.date);
+      const pDateFull = new Date(payment.createdAt || payment.date);
+      const pDate = pDateFull.toISOString().split('T')[0];
       const amount = Number(payment.amount);
-      const dateStr = paymentDate.toDateString();
 
-      if (paymentDate >= today) todayRev += amount;
-      if (paymentDate >= startOfWeek) weekRev += amount;
-      if (paymentDate >= startOfMonth) monthRev += amount;
-      if (dailyMap[dateStr] !== undefined) dailyMap[dateStr] += amount;
+      if (pDateFull >= today) todayRev += amount;
+      if (pDateFull >= startOfWeek) weekRev += amount;
+      if (pDateFull >= startOfMonth) monthRev += amount;
+
+      const dayBucket = trend.find(t => t.date === pDate);
+      if (dayBucket) dayBucket.amount += amount;
     });
-
-    const last7Days = Object.entries(dailyMap)
-        .map(([date, amount]) => ({ date, amount }))
-        .reverse();
 
     const averageDailyRev = monthRev / currentDayOfMonth;
     const projectedMonthRev = averageDailyRev * daysInMonth;
@@ -110,7 +112,7 @@ export default function AdminDashboard() {
         week: weekRev,
         month: monthRev,
         projected: projectedMonthRev,
-        last7Days
+        last7Days: trend
     });
   }, []);
 
@@ -789,7 +791,8 @@ export default function AdminDashboard() {
                 <div className="absolute bottom-0 left-0 w-full h-10 opacity-20 group-hover:opacity-40 transition-opacity">
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={revenueMetrics.last7Days}>
-                            <Line type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={2} dot={false} isAnimationActive={false} />
+                            <YAxis hide domain={['dataMin', 'dataMax']} />
+                            <Line type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={3} dot={false} isAnimationActive={false} />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
@@ -801,10 +804,11 @@ export default function AdminDashboard() {
                     <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">This Week</p>
                     <p className="text-xl font-black text-white">{formatKES(revenueMetrics.week)}</p>
                 </div>
-                <div className="absolute bottom-0 left-0 w-full h-10 opacity-20 group-hover:opacity-40 transition-opacity">
+                <div className="absolute bottom-0 left-0 w-full h-16 opacity-30 group-hover:opacity-50 transition-opacity pointer-events-none">
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={revenueMetrics.last7Days}>
-                            <Line type="monotone" dataKey="amount" stroke="#6366f1" strokeWidth={2} dot={false} isAnimationActive={false} />
+                            <YAxis hide domain={['dataMin', 'dataMax']} />
+                            <Line type="monotone" dataKey="amount" stroke="#6366f1" strokeWidth={4} dot={false} isAnimationActive={true} />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
@@ -819,6 +823,7 @@ export default function AdminDashboard() {
                 <div className="absolute bottom-0 left-0 w-full h-10 opacity-20 group-hover:opacity-40 transition-opacity">
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={revenueMetrics.last7Days}>
+                            <YAxis hide domain={['dataMin', 'dataMax']} />
                             <Line type="monotone" dataKey="amount" stroke="#6366f1" strokeWidth={2} dot={false} isAnimationActive={false} />
                         </LineChart>
                     </ResponsiveContainer>
@@ -835,7 +840,8 @@ export default function AdminDashboard() {
                 <div className="absolute bottom-0 left-0 w-full h-10 opacity-20 group-hover:opacity-40 transition-opacity">
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={revenueMetrics.last7Days}>
-                            <Line type="monotone" dataKey="amount" stroke="#a855f7" strokeWidth={2} dot={false} isAnimationActive={false} />
+                            <YAxis hide domain={['dataMin', 'dataMax']} />
+                            <Line type="monotone" dataKey="amount" stroke="#a855f7" strokeWidth={3} dot={false} isAnimationActive={false} />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
