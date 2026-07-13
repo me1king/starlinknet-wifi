@@ -28,28 +28,31 @@ RUN apt-get update && apt-get install -y \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-# Set environment variables for Puppeteer
+# Set environment variables for Puppeteer and Next.js
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
 
 WORKDIR /app
 
 # Copy package files and install dependencies
 COPY package*.json ./
-# Use --legacy-peer-deps to avoid dependency conflicts that might crash the build
+# Use --legacy-peer-deps and exclude devDependencies for a lighter build
 RUN npm install --legacy-peer-deps
 
 # Copy the rest of the application
 COPY . .
 
-# Generate Prisma client with explicit logging
+# Generate Prisma client
 RUN npx prisma generate
 
-# Build the Next.js application
-RUN npm run build
+# Build the Next.js application (Skip lint to save memory/time)
+RUN npx next build
 
 # Expose the port Next.js runs on
 EXPOSE 3000
 
-# Start the application using a script that handles both Next.js and the WhatsApp bridge
-CMD ["npm", "start"]
+# Start the application using the bridge server as the entry point
+# This runs the WhatsApp worker in the background and the web server in the foreground
+CMD ["sh", "-c", "node scripts/whatsapp-bridge.cjs & npm start"]

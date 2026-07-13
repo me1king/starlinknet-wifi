@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.idea
+build
+android
+.gradle
+.artifacts
+*.log
+.env
+.env.*
+!.env.production
