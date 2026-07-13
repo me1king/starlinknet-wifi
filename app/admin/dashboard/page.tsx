@@ -7,8 +7,9 @@ import {
   XCircle, Zap, Wifi, Clock, Database, Smartphone,
   CheckCircle2, ShieldAlert, Cpu, HardDrive, LayoutDashboard,
   Download, List, Printer, Plus, AlertTriangle, ArrowUpRight,
-  Search, MessageSquare, Globe, Monitor, Eye
+  Search, MessageSquare, Globe, Monitor, Eye, DollarSign
 } from 'lucide-react';
+import { LineChart, Line, ResponsiveContainer } from 'recharts';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +60,60 @@ export default function AdminDashboard() {
   const [showLogs, setShowLogs] = useState(false);
   const [adBlockEnabled, setAdBlockEnabled] = useState(false);
   const [trafficHistory, setTrafficHistory] = useState<any[]>([]);
+  const [revenueMetrics, setRevenueMetrics] = useState<any>({ today: 0, week: 0, month: 0, projected: 0, last7Days: [] });
+
+  // FINANCIAL HUD MATH
+  const calculateFinancials = useCallback((payments: any[]) => {
+    if (!payments) return;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
+
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const currentDayOfMonth = now.getDate() || 1;
+
+    let todayRev = 0;
+    let weekRev = 0;
+    let monthRev = 0;
+
+    const dailyMap: Record<string, number> = {};
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        dailyMap[d.toDateString()] = 0;
+    }
+
+    payments.forEach(payment => {
+      const paymentDate = new Date(payment.createdAt || payment.date);
+      const amount = Number(payment.amount);
+      const dateStr = paymentDate.toDateString();
+
+      if (paymentDate >= today) todayRev += amount;
+      if (paymentDate >= startOfWeek) weekRev += amount;
+      if (paymentDate >= startOfMonth) monthRev += amount;
+      if (dailyMap[dateStr] !== undefined) dailyMap[dateStr] += amount;
+    });
+
+    const last7Days = Object.entries(dailyMap)
+        .map(([date, amount]) => ({ date, amount }))
+        .reverse();
+
+    const averageDailyRev = monthRev / currentDayOfMonth;
+    const projectedMonthRev = averageDailyRev * daysInMonth;
+
+    setRevenueMetrics({
+        today: todayRev,
+        week: weekRev,
+        month: monthRev,
+        projected: projectedMonthRev,
+        last7Days
+    });
+  }, []);
+
   const [rogueDevices, setRogueDevices] = useState<any[]>([]);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
   const [tableFilter, setTableFilter] = useState('ALL');
@@ -156,6 +211,7 @@ export default function AdminDashboard() {
               sendNotification("💰 New Payment Success!", `Total Revenue: KES ${metr.totalRevenue}`);
           }
           setMetrics(metr);
+          if (metr.recentPayments) calculateFinancials(metr.recentPayments);
       }
 
       const offr = await safeFetch(`/api/admin/offers?siteId=${selectedSite}`);
@@ -719,6 +775,75 @@ export default function AdminDashboard() {
   );
 
   // Helper Components
+  const FinancialHUD = () => {
+    const formatKES = (val: number) => `KES ${Math.round(val).toLocaleString()}`;
+
+    return (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            {/* Today */}
+            <div className="bg-[#11141b] border border-gray-800 p-5 rounded-3xl relative overflow-hidden group hover:border-emerald-500/30 transition-all">
+                <div className="relative z-10">
+                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Today</p>
+                    <p className="text-xl font-black text-emerald-400">{formatKES(revenueMetrics.today)}</p>
+                </div>
+                <div className="absolute bottom-0 left-0 w-full h-10 opacity-20 group-hover:opacity-40 transition-opacity">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={revenueMetrics.last7Days}>
+                            <Line type="monotone" dataKey="amount" stroke="#10b981" strokeWidth={2} dot={false} isAnimationActive={false} />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* This Week */}
+            <div className="bg-[#11141b] border border-gray-800 p-5 rounded-3xl relative overflow-hidden group hover:border-indigo-500/30 transition-all">
+                <div className="relative z-10">
+                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">This Week</p>
+                    <p className="text-xl font-black text-white">{formatKES(revenueMetrics.week)}</p>
+                </div>
+                <div className="absolute bottom-0 left-0 w-full h-10 opacity-20 group-hover:opacity-40 transition-opacity">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={revenueMetrics.last7Days}>
+                            <Line type="monotone" dataKey="amount" stroke="#6366f1" strokeWidth={2} dot={false} isAnimationActive={false} />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* This Month */}
+            <div className="bg-[#11141b] border border-gray-800 p-5 rounded-3xl relative overflow-hidden group hover:border-indigo-500/30 transition-all">
+                <div className="relative z-10">
+                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">This Month</p>
+                    <p className="text-xl font-black text-white">{formatKES(revenueMetrics.month)}</p>
+                </div>
+                <div className="absolute bottom-0 left-0 w-full h-10 opacity-20 group-hover:opacity-40 transition-opacity">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={revenueMetrics.last7Days}>
+                            <Line type="monotone" dataKey="amount" stroke="#6366f1" strokeWidth={2} dot={false} isAnimationActive={false} />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* Projection */}
+            <div className="bg-[#11141b] border border-purple-900/30 p-5 rounded-3xl relative overflow-hidden group hover:border-purple-500/50 transition-all shadow-lg shadow-purple-900/5">
+                <div className="absolute top-0 right-0 w-16 h-16 bg-purple-500/5 rounded-full blur-2xl" />
+                <div className="relative z-10">
+                    <p className="text-[10px] text-purple-400 font-black uppercase tracking-widest mb-1">Est. Month End</p>
+                    <p className="text-xl font-black text-purple-400">{formatKES(revenueMetrics.projected)}</p>
+                </div>
+                <div className="absolute bottom-0 left-0 w-full h-10 opacity-20 group-hover:opacity-40 transition-opacity">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={revenueMetrics.last7Days}>
+                            <Line type="monotone" dataKey="amount" stroke="#a855f7" strokeWidth={2} dot={false} isAnimationActive={false} />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        </div>
+    );
+  };
+
   const TrafficGraph = () => {
     const maxVal = Math.max(...trafficHistory.map(h => Math.max(h.rx, h.tx)), 1000000);
     const height = 120;
@@ -1004,6 +1129,9 @@ export default function AdminDashboard() {
 
         {!showBulkScreen ? (
           <div className="space-y-8 animate-in fade-in duration-700">
+            {/* FINANCIAL HUD */}
+            <FinancialHUD />
+
             {/* --- REVENUE & NETWORK STATS --- */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 rounded-3xl text-white shadow-xl shadow-indigo-500/10 border border-white/5 relative overflow-hidden">
