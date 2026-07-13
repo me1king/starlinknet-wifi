@@ -32,13 +32,12 @@ RUN apt-get update && apt-get install -y \
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
 
 WORKDIR /app
 
 # Copy package files and install dependencies
 COPY package*.json ./
-# Use --legacy-peer-deps and exclude devDependencies for a lighter build
+# ENSURE DEV DEPENDENCIES ARE INSTALLED FOR BUILD (Like Typescript)
 RUN npm install --legacy-peer-deps
 
 # Copy the rest of the application
@@ -49,6 +48,9 @@ RUN npx prisma@6.19.3 generate
 
 # Build the Next.js application (Skip lint to save memory/time)
 RUN npx next build
+
+# Set to production mode ONLY after build is done
+ENV NODE_ENV=production
 
 # Expose the port Next.js runs on
 EXPOSE 3000
