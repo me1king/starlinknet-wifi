@@ -12,6 +12,21 @@ export default function PayPage() {
   const [fetching, setFetching] = useState(true);
   const [tunnelBlocked, setTunnelBlocked] = useState(false);
   const [status, setStatus] = useState<{ success: boolean; message: string } | null>(null);
+  const [showAbandonedOffer, setShowAbandonedOffer] = useState(false);
+  const [hasInteracted, setHasAbandonedInteracted] = useState(false);
+
+  // Abandoned Cart Tracker: Conversion Logic
+  useEffect(() => {
+    if (loading || isSuccess || isWaitingForPin || hasInteracted) return;
+
+    const timer = setTimeout(() => {
+      // If user hasn't clicked anything in 45 seconds, show them a deal
+      setShowAbandonedOffer(true);
+    }, 45000);
+
+    return () => clearTimeout(timer);
+  }, [loading, isSuccess, isWaitingForPin, hasInteracted]);
+
   const [isWaitingForPin, setIsWaitingForPin] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [purchasedVoucher, setPurchasedVoucher] = useState("");
@@ -627,12 +642,36 @@ export default function PayPage() {
                     <span style={{ backgroundColor: "#ffffff", padding: "0 10px", color: "#9ca3af", fontSize: "12px", fontWeight: "600", position: "relative" }}>OR</span>
                   </div>
 
-                  <button type="button" onClick={handleFreeTrial} disabled={loading} style={{
+                  <button type="button" onClick={() => { setHasAbandonedInteracted(true); handleFreeTrial(); }} disabled={loading} style={{
                     width: "100%", backgroundColor: "#f0fdf4", color: "#16a34a", padding: "16px",
                     borderRadius: "12px", border: "2px dashed #bbf7d0", fontSize: "15px", fontWeight: "700", cursor: "pointer",
                     transition: "all 0.2s"
                   }}>
                     {loading ? "Please wait..." : "🎁 Get 10 Minutes FREE Trial"}
+                  </button>
+
+                  {/* ABANDONED CART JS TRACKING OFFER */}
+                  {showAbandonedOffer && (
+                      <div className="animate-in slide-in-from-bottom duration-500" style={{
+                          backgroundColor: "#fef3c7",
+                          border: "2px dashed #f59e0b",
+                          borderRadius: "24px",
+                          padding: "24px",
+                          marginTop: "16px",
+                          position: "relative",
+                          boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)"
+                      }}>
+                          <button onClick={() => setShowAbandonedOffer(false)} style={{ position: "absolute", top: "12px", right: "12px", background: "none", border: "none", fontSize: "18px", cursor: "pointer", color: "#92400e" }}>✕</button>
+                          <p style={{ fontSize: "14px", fontWeight: "900", color: "#92400e", margin: "0 0 4px", textTransform: "uppercase" }}>🎁 FOR NEW BROWSERS!</p>
+                          <p style={{ fontSize: "12px", color: "#b45309", marginBottom: "16px", lineHeight: "1.5" }}>Not sure about the speed? Try **10 Minutes Free** right now to test the Starlink signal.</p>
+                          <button
+                            onClick={() => { setShowAbandonedOffer(false); setHasAbandonedInteracted(true); handleFreeTrial(); }}
+                            style={{ width: "100%", backgroundColor: "#f59e0b", color: "white", padding: "14px", borderRadius: "14px", border: "none", fontWeight: "900", fontSize: "13px", cursor: "pointer" }}
+                          >
+                            START FREE TEST
+                          </button>
+                      </div>
+                  )}
                   </button>
                 </form>
 
