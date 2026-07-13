@@ -830,7 +830,7 @@ export default function AdminDashboard() {
                     <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={revenueMetrics.last7Days}>
                             <YAxis hide domain={['dataMin', 'dataMax']} />
-                            <Line type="monotone" dataKey="amount" stroke="#6366f1" strokeWidth={4} dot={false} isAnimationActive={true} />
+                            <Line type="monotone" dataKey="amount" stroke="#6366f1" strokeWidth={4} dot={false} isAnimationActive={false} />
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
