@@ -44,8 +44,8 @@ RUN npm install --legacy-peer-deps
 # Copy the rest of the application
 COPY . .
 
-# Generate Prisma client
-RUN npx prisma generate
+# Generate Prisma client using exact version to avoid v7 breaking changes
+RUN npx prisma@6.19.3 generate
 
 # Build the Next.js application (Skip lint to save memory/time)
 RUN npx next build
