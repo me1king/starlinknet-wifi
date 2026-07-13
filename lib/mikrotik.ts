@@ -99,7 +99,17 @@ async function executeRestCommand(path: string, method: string = 'GET', body?: a
             const errorText = await response.text();
             throw new Error(`REST Error (${response.status}): ${errorText}`);
         }
-        return await response.json();
+
+        const text = await response.text();
+        try {
+            return JSON.parse(text);
+        } catch (parseError) {
+            console.error("[MikroTik REST] JSON Parse Error. Body starts with:", text.substring(0, 100));
+            if (text.toLowerCase().includes("<html>") || text.toLowerCase().includes("<!doctype")) {
+                throw new Error("REST_HTML_RESPONSE");
+            }
+            throw new Error("REST_INVALID_JSON");
+        }
     } catch (e: any) {
         clearTimeout(timeoutId);
         if (e.name === 'AbortError') throw new Error("REST_TIMEOUT");
@@ -190,10 +200,13 @@ async function testMikrotikConnection(siteId?: string) {
       const data = await executeRestCommand('/system/identity', 'GET', undefined, siteId);
       return { success: true, message: `Connected to MikroTik (REST): ${data.name}` };
   } catch (e: any) {
-      if (e.message === "REST_NOT_FOUND" || config.port !== 80) {
+      if (e.message === "REST_NOT_FOUND" || e.message === "REST_HTML_RESPONSE" || config.port !== 80) {
           const legacy = await testLegacyConnection(siteId);
           if (legacy.success) return { success: true, message: `Connected to MikroTik (Legacy): ${legacy.name}` };
-          return { success: false, error: legacy.error, tip: "Check if router API is accessible and port is correct." };
+          const tip = e.message === "REST_HTML_RESPONSE"
+            ? "Router sent HTML instead of JSON. Run '/ip hotspot ip-binding add address=10.0.0.0/24 type=bypassed' in MikroTik."
+            : "Check if router API is accessible and port is correct.";
+          return { success: false, error: legacy.error, tip };
       }
       return { success: false, error: e.message, tip: "Verify MIKROTIK_HOST matches router IP." };
   }
