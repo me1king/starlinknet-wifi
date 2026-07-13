@@ -672,7 +672,6 @@ export default function PayPage() {
                           </button>
                       </div>
                   )}
-                  </button>
                 </form>
 
                 <div style={{ marginTop: "24px", textAlign: "center" }}>
