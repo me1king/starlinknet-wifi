@@ -53,6 +53,7 @@ export default function AdminDashboard() {
   const [debugLog, setDebugLog] = useState<string[]>([]);
   const [sessionTimers, setSessionTimers] = useState<Record<string, string>>({});
   const [lastCleanup, setLastCleanup] = useState<string | null>(null);
+  const [lastSniperScan, setLastSniperScan] = useState<string | null>(null);
   const [inspectingUser, setInspectingUser] = useState<any>(null);
   const [inspectData, setInspectData] = useState<any>(null);
   const [inspectLoading, setInspectLoading] = useState(false);
@@ -571,6 +572,24 @@ export default function AdminDashboard() {
             alert(`✅ Ghost Buster Complete!\n\nKicked ${data.kickedCount} idle users out of ${data.totalChecked} active sessions.`);
             fetchData(false);
         } else alert("❌ Ghost Buster failed.");
+    } catch (e) { alert("Network error."); }
+    finally { setActionLoading(false); }
+  };
+
+  const handleRogueSniper = async () => {
+    setActionLoading(true);
+    try {
+        const res = await fetch(`/api/cron/rogue-sniper?siteId=${selectedSite}`);
+        const data = await res.json();
+        if (res.ok) {
+            setLastSniperScan(new Date().toLocaleTimeString());
+            if (data.neutralizedCount > 0) {
+                playSound('alert');
+                alert(`🚨 ROGUE SNIPER: Threat Neutralized!\n\nDetected and Isolated ${data.neutralizedCount} rogue DHCP servers.\n\nMACs: ${data.neutralizedMacs.join(', ')}`);
+            } else {
+                alert("✅ Rogue Sniper: Perimeter Clear. No imposters detected.");
+            }
+        } else alert("❌ Rogue Sniper failed.");
     } catch (e) { alert("Network error."); }
     finally { setActionLoading(false); }
   };
@@ -1254,6 +1273,13 @@ export default function AdminDashboard() {
                 <div className="text-left">
                   <p className="text-[10px] font-black uppercase text-white">Ghost Buster</p>
                   <p className="text-[8px] text-gray-500 uppercase">{lastCleanup ? `Last: ${lastCleanup}` : 'Clear Idle Users'}</p>
+                </div>
+              </button>
+              <button onClick={handleRogueSniper} className="bg-[#11141b] p-4 rounded-2xl border border-gray-800 hover:border-red-500/50 transition-all flex items-center gap-3">
+                <ShieldAlert className="w-5 h-5 text-red-500" />
+                <div className="text-left">
+                  <p className="text-[10px] font-black uppercase text-white">Rogue Sniper</p>
+                  <p className="text-[8px] text-gray-500 uppercase">{lastSniperScan ? `Scan: ${lastSniperScan}` : 'Lock Perimeter'}</p>
                 </div>
               </button>
             </div>
