@@ -92,6 +92,9 @@ export default function AdminDashboard() {
     }
 
     payments.forEach(payment => {
+      // REVENUE PROTECTION: Only count ACTIVE payments
+      if (payment.status !== 'active') return;
+
       const pDateFull = new Date(payment.createdAt || payment.date);
       const pDate = pDateFull.toISOString().split('T')[0];
       const amount = Number(payment.amount);
