@@ -278,12 +278,22 @@ async function addVoucherTime(voucherCode: string, minutes: number, siteId?: str
     }
 }
 
-async function getMikrotikTraffic(siteId?: string, interfaceName: string = 'ether1') {
+async function getMikrotikTraffic(siteId?: string, interfaceName?: string) {
   try {
-      const data = await executeRestCommand('/interface/monitor-traffic', 'POST', { interface: interfaceName, once: true }, siteId);
+      const config = await getMikrotikConfig(siteId);
+      // PRIORITY:
+      // 1. Use the interface name passed to the function (from API query)
+      // 2. Use the environment variable MIKROTIK_INTERFACE (Manual Override)
+      // 3. Fallback to 'ether1' (Default)
+      const targetInterface = interfaceName || process.env.MIKROTIK_INTERFACE || 'ether1';
+
+      console.log(`[MikroTik Traffic] Monitoring interface: ${targetInterface}`);
+
+      const data = await executeRestCommand('/interface/monitor-traffic', 'POST', { interface: targetInterface, once: true }, siteId);
       return Array.isArray(data) ? data[0] : data;
   } catch (e: any) {
-      return await getLegacyTraffic(interfaceName, siteId);
+      const fallbackInterface = interfaceName || process.env.MIKROTIK_INTERFACE || 'ether1';
+      return await getLegacyTraffic(fallbackInterface, siteId);
   }
 }
 
