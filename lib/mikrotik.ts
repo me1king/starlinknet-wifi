@@ -33,7 +33,7 @@ async function getMikrotikConfig(siteId?: string): Promise<MikrotikConfig> {
   // Source of Truth: environment variables
   // FAIL-SAFE: If switching ISPs, WireGuard/Tailscale IPs stay constant (10.0.0.2 / 100.x.x.x)
   // This ensures the system doesn't break when you change from Starlink to Fiber etc.
-  const envHost = (process.env.MIKROTIK_HOST || '10.0.0.2').replace(/https?:\/\//g, '').replace(/['"]+/g, '').trim();
+  const envHost = (process.env.MIKROTIK_HOST || 'CLOUD_BRIDGE').replace(/https?:\/\//g, '').replace(/['"]+/g, '').trim();
   const envPort = parseInt((process.env.MIKROTIK_PORT || '8728').replace(/['"]+/g, '').trim());
 
   let config: MikrotikConfig = {
