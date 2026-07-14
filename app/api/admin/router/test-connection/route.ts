@@ -23,6 +23,17 @@ export async function GET(request: Request) {
 
     const config = await getMikrotikConfig(siteId);
 
+    // 2. If Host is set to CLOUD_BRIDGE, we don't attempt direct connection
+    if (config.host.toUpperCase() === 'CLOUD_BRIDGE') {
+      return NextResponse.json({
+        success: false,
+        message: "Waiting for Cloud Bridge heartbeat...",
+        error: "NO_HEARTBEAT",
+        configUsed: { host: 'CLOUD_BRIDGE', mode: 'CLOUD_SYNC' },
+        tip: "Your server is in Cloud Mode. Please ensure the 'Heartbeat' script is running on your MikroTik router to link them."
+      });
+    }
+
     console.log(`[Diagnostic] Testing connection to ${config.host}:${config.port}`);
 
     const result = await testMikrotikConnection(siteId);
