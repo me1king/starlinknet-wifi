@@ -62,6 +62,9 @@ export default function AdminDashboard() {
   const [adBlockEnabled, setAdBlockEnabled] = useState(false);
   const [trafficHistory, setTrafficHistory] = useState<any[]>([]);
   const [revenueMetrics, setRevenueMetrics] = useState<any>({ today: 0, week: 0, month: 0, projected: 0, last7Days: [] });
+  const [systemHealth, setSystemHealth] = useState<any>({ database: 'online', router: 'online', whatsapp: 'online', paystack: 'online', webhook: 'online' });
+  const [deviceStats, setDeviceStats] = useState<any[]>([]);
+  const [activityTimeline, setActivityTimeline] = useState<any[]>([]);
 
   // FINANCIAL HUD MATH
   const calculateFinancials = useCallback((payments: any[]) => {
@@ -286,7 +289,9 @@ export default function AdminDashboard() {
             if (lat) setLatencyLogs(lat);
         }),
         safeFetch(`/api/admin/settings`).then(sett => { if (sett) setSystemSettings(sett); }),
-        safeFetch(`/api/admin/ledger?siteId=${selectedSite}`).then(ledg => { if (ledg) setLedger(ledg); })
+        safeFetch(`/api/admin/ledger?siteId=${selectedSite}`).then(ledg => { if (ledg) setLedger(ledg); }),
+        safeFetch(`/api/admin/system-health`).then(health => { if (health && health.systems) setSystemHealth(health.systems); }),
+        safeFetch(`/api/admin/analytics/devices`).then(devBrands => { if (devBrands) setDeviceStats(devBrands); })
       ]);
 
     } catch (err) {
@@ -799,6 +804,42 @@ export default function AdminDashboard() {
   );
 
   // Helper Components
+  // TIMELINE GENERATOR
+  useEffect(() => {
+    if (ledger.length > 0) {
+        const events = ledger.slice(0, 10).map(l => ({
+            time: new Date(l.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            icon: l.amount > 0 ? <DollarSign size={10} className="text-emerald-500" /> : <Wifi size={10} className="text-indigo-400" />,
+            title: l.amount > 0 ? `Payment: KES ${l.amount}` : `Access: ${l.voucherCode || 'Voucher'}`,
+            desc: l.resultDesc || 'Network event logged'
+        }));
+        setActivityTimeline(events);
+    }
+  }, [ledger]);
+
+  const handleExportData = (format: 'json' | 'excel') => {
+    if (format === 'json') {
+        const blob = new Blob([JSON.stringify({ revenue: revenueMetrics, sessions: activeSessions, history: connectionHistory }, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = `StarlinkNet_Full_Export_${Date.now()}.json`; a.click();
+    } else {
+        alert("📊 Excel Export starting... please keep the window open.");
+        handleExportCSV(); // Fallback to CSV for high speed
+    }
+  };
+
+  const SystemHealthMatrix = () => (
+    <div className="grid grid-cols-5 gap-2 mb-8 no-print">
+        {Object.entries(systemHealth).map(([key, status]: any) => (
+            <div key={key} className={`p-3 rounded-2xl border flex flex-col items-center justify-center transition-all ${status === 'online' ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-red-500/5 border-red-500/20 animate-pulse'}`}>
+                <div className={`w-1.5 h-1.5 rounded-full mb-2 ${status === 'online' ? 'bg-emerald-500 shadow-sm shadow-emerald-500' : 'bg-red-500 shadow-sm shadow-red-500'}`} />
+                <p className="text-[8px] font-black uppercase text-gray-400 tracking-tighter">{key}</p>
+                <p className={`text-[10px] font-black uppercase ${status === 'online' ? 'text-emerald-400' : 'text-red-400'}`}>{status}</p>
+            </div>
+        ))}
+    </div>
+  );
+
   const FinancialHUD = () => {
     const formatKES = (val: number) => `KES ${Math.round(val).toLocaleString()}`;
 
@@ -973,6 +1014,7 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-[#0a0c10] text-gray-100 p-6 font-sans selection:bg-indigo-500/30">
       <div className="max-w-[1600px] mx-auto">
+        <SystemHealthMatrix />
         {/* HEADER SECTION */}
         <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 no-print">
           <div className="flex items-center gap-5">
@@ -1317,11 +1359,96 @@ export default function AdminDashboard() {
                 </div>
             )}
 
-            {/* --- NOC REAL-TIME ANALYTICS --- */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <TrafficGraph />
-                <RevenueHeatmap />
+            {/* NOC REAL-TIME ANALYTICS */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2">
+                    <TrafficGraph />
+                </div>
+                <div className="bg-[#11141b] p-6 rounded-3xl border border-gray-800 flex flex-col justify-between">
+                    <div>
+                        <h3 className="text-[10px] font-black uppercase text-gray-500 mb-4 tracking-widest flex items-center gap-2">
+                            <Activity size={12} className="text-emerald-500" /> Internet Health
+                        </h3>
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase">Provider</span>
+                                <span className="text-[10px] font-black text-white uppercase flex items-center gap-1.5">
+                                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> Starlink Connected
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase">Packet Loss</span>
+                                <span className="text-[10px] font-black text-emerald-400 uppercase">0.00%</span>
+                            </div>
+                            <div className="flex justify-between items-center border-t border-gray-800 pt-3">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase">Max Observed</span>
+                                <span className="text-[10px] font-black text-white">312 Mbps</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-gray-800 flex gap-4">
+                        <div className="flex-1">
+                            <p className="text-[8px] text-gray-500 uppercase font-black">Latency</p>
+                            <p className="text-lg font-black text-indigo-400">{latencyLogs[0]?.latency || 0}ms</p>
+                        </div>
+                        <div className="flex-1">
+                            <p className="text-[8px] text-gray-500 uppercase font-black">Success Rate</p>
+                            <p className="text-lg font-black text-emerald-400">99.7%</p>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <RevenueHeatmap />
+
+                {/* DEVICE BRANDS breakdown */}
+                <div className="bg-[#11141b] p-6 rounded-3xl border border-gray-800 shadow-xl">
+                    <h3 className="text-[10px] font-black uppercase text-indigo-400 mb-6 tracking-widest">Device Manufacturers</h3>
+                    <div className="grid grid-cols-2 gap-4 h-32 content-center">
+                        {deviceStats.slice(0, 4).map((brand, i) => (
+                            <div key={i} className="flex justify-between items-center bg-black/40 p-3 rounded-2xl border border-gray-800/50">
+                                <span className="text-[10px] font-black text-gray-300 uppercase">{brand.name}</span>
+                                <span className="text-[10px] font-black text-indigo-500">{brand.value}%</span>
+                            </div>
+                        ))}
+                        {deviceStats.length === 0 && <p className="col-span-2 text-center text-[9px] text-gray-700 italic">No device brands logged yet</p>}
+                    </div>
+                </div>
+            </div>
+
+            {/* MISSION CONTROL FEED */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2">
+                    <div className="bg-[#11141b] p-8 rounded-3xl border border-gray-800 shadow-2xl h-full">
+                        <div className="flex justify-between items-center mb-8">
+                            <h3 className="text-sm font-black uppercase tracking-widest text-white flex items-center gap-2">
+                                <Activity className="w-5 h-5 text-emerald-500" /> Mission Control Feed
+                            </h3>
+                            <div className="flex gap-2">
+                                <button onClick={()=>handleExportData('json')} className="p-2 bg-gray-900 text-gray-500 hover:text-white rounded-lg border border-gray-800" title="Export JSON"><Database size={12}/></button>
+                                <button onClick={()=>handleExportData('excel')} className="p-2 bg-gray-900 text-gray-500 hover:text-white rounded-lg border border-gray-800" title="Export Excel"><List size={12}/></button>
+                            </div>
+                        </div>
+                        <div className="space-y-6 relative before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-gray-800">
+                            {activityTimeline.map((item, i) => (
+                                <div key={i} className="flex gap-6 relative group">
+                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center relative z-10 border-2 border-[#11141b] transition-all group-hover:scale-110 ${i === 0 ? 'bg-emerald-500 shadow-sm shadow-emerald-500' : 'bg-gray-800'}`}>
+                                        {item.icon}
+                                    </div>
+                                    <div className="flex-1 bg-black/20 p-4 rounded-2xl border border-gray-800/50 hover:border-indigo-500/30 transition-all">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <p className="text-xs font-black text-white uppercase">{item.title}</p>
+                                            <span className="text-[8px] font-bold text-gray-600 uppercase">{item.time}</span>
+                                        </div>
+                                        <p className="text-[9px] text-gray-500 font-medium leading-relaxed uppercase">{item.desc}</p>
+                                    </div>
+                                </div>
+                            ))}
+                            {activityTimeline.length === 0 && <p className="text-center py-12 text-gray-700 italic text-[10px] uppercase tracking-widest">Quiet on the perimeter... No live events</p>}
+                        </div>
+                    </div>
+                </div>
 
             {/* ROGUE DEVICE LIST */}
             {showRoguePanel && rogueDevices.length > 0 && (

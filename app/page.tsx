@@ -226,12 +226,31 @@ export default function PayPage() {
               <p style={{ fontSize: "12px", color: "#6b7280", fontWeight: "800" }}>VOUCHER CODE</p>
               <div style={{ fontSize: "32px", fontWeight: "900", color: "#111827" }}>{purchasedVoucher}</div>
             </div>
+
+            <div style={{ marginTop: "24px", display: "flex", gap: "8px", justifyContent: "center" }}>
+                <div style={{ padding: "4px 10px", backgroundColor: "#f0fdf4", borderRadius: "6px", fontSize: "10px", fontWeight: "800", color: "#16a34a" }}>✅ ACTIVATED</div>
+                <div style={{ padding: "4px 10px", backgroundColor: "#eff6ff", borderRadius: "6px", fontSize: "10px", fontWeight: "800", color: "#2563eb" }}>⚡ INSTANT</div>
+            </div>
           </div>
         ) : (
           <>
-            <h1 style={{ textAlign: "center", marginBottom: "32px", fontWeight: "700", color: "#1e293b", fontSize: "38px" }}>
+            <h1 style={{ textAlign: "center", marginBottom: "8px", fontWeight: "700", color: "#1e293b", fontSize: "38px" }}>
               STARLINKNET.<span style={{ color: "#6366f1" }}>WIFI</span>
             </h1>
+
+            <div style={{ backgroundColor: "#f0fdf4", color: "#10b981", padding: "4px 12px", borderRadius: "100px", fontSize: "10px", fontWeight: "700", display: "flex", alignItems: "center", gap: "5px", margin: "0 auto 12px", width: "fit-content", border: "1px solid #dcfce7" }}>
+              ● LINK ACTIVE
+            </div>
+
+            {/* USER INFO BAR */}
+            <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginBottom: "32px" }}>
+                <div style={{ fontSize: "9px", fontWeight: "800", color: "#94a3b8", display: "flex", alignItems: "center", gap: "4px" }}>
+                    <Monitor size={10} /> {mac || 'Unknown Device'}
+                </div>
+                <div style={{ fontSize: "9px", fontWeight: "800", color: "#94a3b8", display: "flex", alignItems: "center", gap: "4px" }}>
+                    <ShieldAlert size={10} /> SSL Encrypted
+                </div>
+            </div>
 
             {activeTimer && (
               <div style={{ marginBottom: "32px", backgroundColor: "#111827", padding: "20px", borderRadius: "20px", color: "#10b981", textAlign: "center" }}>
@@ -302,8 +321,46 @@ export default function PayPage() {
           </div>
         )}
 
-        <div style={{ marginTop: "40px", textAlign: "center" }}>
-            <a href="tel:0769345599" style={{ display: "block", backgroundColor: "#2563eb", color: "#fff", padding: "16px", borderRadius: "14px", textDecoration: "none", fontWeight: "800", fontSize: "15px" }}>📞 Support: 0769345599</a>
+        {/* TRUST BADGES */}
+        <div style={{ display: "flex", justifyContent: "center", gap: "20px", marginTop: "32px", opacity: 0.6 }}>
+            <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "18px" }}>🔒</div>
+                <p style={{ fontSize: "8px", fontWeight: "900", color: "#64748b", marginTop: "4px" }}>SECURE PAYSTACK</p>
+            </div>
+            <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "18px" }}>⚡</div>
+                <p style={{ fontSize: "8px", fontWeight: "900", color: "#64748b", marginTop: "4px" }}>INSTANT START</p>
+            </div>
+            <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: "18px" }}>🛡️</div>
+                <p style={{ fontSize: "8px", fontWeight: "900", color: "#64748b", marginTop: "4px" }}>FAIR USAGE</p>
+            </div>
+        </div>
+
+        {/* SUPPORT & FAQ SECTION */}
+        <div style={{ marginTop: "40px", borderTop: "1px solid #f1f5f9", paddingTop: "32px" }}>
+            <h4 style={{ fontSize: "12px", fontWeight: "900", color: "#1e293b", marginBottom: "16px", textTransform: "uppercase" }}>Quick Support</h4>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <a href="https://wa.me/254769345599" style={{ display: "flex", alignItems: "center", gap: "12px", backgroundColor: "#25d366", color: "#fff", padding: "12px 20px", borderRadius: "12px", textDecoration: "none", fontWeight: "700", fontSize: "14px" }}>
+                    <Phone size={16} /> WhatsApp Support
+                </a>
+                <a href="tel:0769345599" style={{ display: "flex", alignItems: "center", gap: "12px", backgroundColor: "#111827", color: "#fff", padding: "12px 20px", borderRadius: "12px", textDecoration: "none", fontWeight: "700", fontSize: "14px" }}>
+                    <Smartphone size={16} /> Call: 0769345599
+                </a>
+            </div>
+
+            <div style={{ marginTop: "32px" }}>
+                <h4 style={{ fontSize: "12px", fontWeight: "900", color: "#1e293b", marginBottom: "12px", textTransform: "uppercase" }}>Common Questions</h4>
+                <div style={{ fontSize: "12px", color: "#64748b", lineHeight: "1.6" }}>
+                    <p style={{ marginBottom: "8px" }}><strong>How long does it take?</strong> Activation is instant after PIN entry.</p>
+                    <p style={{ marginBottom: "8px" }}><strong>I paid but I'm offline?</strong> Click 'Reconnect' below and enter your number.</p>
+                </div>
+            </div>
+
+            <div style={{ marginTop: "32px", fontSize: "10px", color: "#cbd5e1", textAlign: "center" }}>
+                <p>By connecting, you agree to our <strong>Terms of Service</strong> and <strong>Privacy Policy</strong>.</p>
+                <p style={{ marginTop: "8px" }}>© 2026 Starlinknet.WIFI • Powered by Cloud-M</p>
+            </div>
         </div>
       </div>
     </div>
