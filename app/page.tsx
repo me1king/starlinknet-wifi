@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { XCircle, CheckCircle2, ShieldAlert, Zap, Wifi, Phone, Clock, Monitor } from 'lucide-react';
 
 export default function PayPage() {
-  // 1. STATE DECLARATIONS (Ordered for logic flow)
   const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [bundlePlans, setBundlePlans] = useState<any[]>([]);
@@ -23,18 +22,15 @@ export default function PayPage() {
   const [activeReference, setActiveReference] = useState<string | null>(null);
   const [systemBanner, setSystemBanner] = useState<{ text: string, type: string } | null>(null);
 
-  // Free Trial States
   const [trialPhoneNumber, setTrialPhoneNumber] = useState("");
   const [showTrialPhoneInput, setShowTrialPhoneInput] = useState(false);
 
-  // Router variables
   const [mac, setMac] = useState("");
   const [ip, setIp] = useState("");
   const [siteId, setSiteId] = useState("default-site");
   const [linkLogin, setLinkLogin] = useState("");
   const [linkOrig, setLinkOrig] = useState("");
 
-  // Live Timer States
   const [statusInfo, setStatusInfo] = useState<any>(null);
   const [activeTimer, setActiveTimer] = useState<string | null>(null);
   const [showTvConnect, setShowTvConnect] = useState(false);
@@ -45,9 +41,7 @@ export default function PayPage() {
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 2. CORE LOGIC (Effects)
   useEffect(() => {
-    // A. Capture Router Vars from URL
     const params = new URLSearchParams(window.location.search);
     const urlMac = params.get('mac') || localStorage.getItem('last_mac') || "";
     const urlIp = params.get('ip') || localStorage.getItem('last_ip') || "";
@@ -60,32 +54,11 @@ export default function PayPage() {
     if (urlMac) {
         localStorage.setItem('last_mac', urlMac);
         checkActiveSession(urlMac, urlSiteId);
-
-        // Handle Referral Link
-        const referredBy = params.get('referredBy');
-        if (referredBy) {
-            fetch('/api/refer/link', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ referrerVoucher: referredBy, refereeMac: urlMac, siteId: urlSiteId }),
-            }).catch(() => {});
-        }
     }
-    if (urlIp) localStorage.setItem('last_ip', urlIp);
 
     setLinkLogin(params.get('link-login') || params.get('link-login-only') || "");
     setLinkOrig(params.get('link-orig') || "");
 
-    // B. Check for redirect return (Active payment session from Paystack)
-    const reference = params.get('reference') || params.get('trxref');
-    if (reference) {
-      setActiveReference(reference);
-      localStorage.setItem('active_checkout_ref', reference);
-      setIsWaitingForPin(true);
-      pollVerification(reference);
-    }
-
-    // C. Fetch Plans & Banner
     const initData = async () => {
       try {
         const [plansRes, settingsRes] = await Promise.all([
@@ -106,7 +79,6 @@ export default function PayPage() {
             if (data?.bannerText) setSystemBanner({ text: data.bannerText, type: data.bannerType });
         }
       } catch (err) {
-        console.error("Init fetch crash:", err);
       } finally {
         setFetching(false);
       }
@@ -119,16 +91,6 @@ export default function PayPage() {
     };
   }, []);
 
-  // Countdown timer for PIN screen
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isWaitingForPin && countdown > 0) {
-      timer = setInterval(() => setCountdown(c => c - 1), 1000);
-    }
-    return () => clearInterval(timer);
-  }, [isWaitingForPin, countdown]);
-
-  // 3. HELPER FUNCTIONS
   const checkActiveSession = async (id: string, sId: string) => {
     try {
         const res = await fetch(`/api/auth/status?id=${id}&siteId=${sId}`);
@@ -136,27 +98,8 @@ export default function PayPage() {
         if (data.active) {
             setStatusInfo(data);
             setActiveTimer(data.remaining);
-            startLiveTimer(id, sId);
         }
     } catch (e) {}
-  };
-
-  const startLiveTimer = (id: string, sId: string) => {
-    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    timerIntervalRef.current = setInterval(async () => {
-        try {
-            const res = await fetch(`/api/auth/status?id=${id}&siteId=${sId}`);
-            const data = await res.json();
-            if (data.active) {
-                setActiveTimer(data.remaining);
-                setStatusInfo(data);
-            } else {
-                setActiveTimer(null);
-                setStatusInfo(null);
-                if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-            }
-        } catch (e) {}
-    }, 10000);
   };
 
   const pollVerification = async (ref: string) => {
@@ -172,13 +115,11 @@ export default function PayPage() {
           setLoading(false);
           localStorage.removeItem('active_checkout_ref');
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-          setTimeout(() => setShowRefer(true), 3000);
           loginRouter(data.voucherCode);
         } else if (data.status === 'failed') {
           setStatus({ success: false, message: `❌ Payment failed: ${data.message || 'Cancelled'}` });
           setIsWaitingForPin(false);
           setLoading(false);
-          localStorage.removeItem('active_checkout_ref');
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
         }
       } catch (e) {}
@@ -198,12 +139,10 @@ export default function PayPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Payment failed");
 
-      if (data.authorization_url) {
-          window.location.href = data.authorization_url;
-      } else {
+      if (data.authorization_url) window.location.href = data.authorization_url;
+      else {
           setActiveReference(data.reference);
           setIsWaitingForPin(true);
-          setCountdown(60);
           pollVerification(data.reference);
       }
     } catch (err: any) {
@@ -237,9 +176,7 @@ export default function PayPage() {
                 setIsSuccess(true);
                 loginRouter(data.voucherCode);
             }, 1500);
-        } else {
-            setStatus({ success: false, message: data.error || "Trial limit reached." });
-        }
+        } else setStatus({ success: false, message: data.error || "Trial limit reached." });
     } catch (e) {
         setStatus({ success: false, message: "Trial failed. Try later." });
     } finally { setLoading(false); }
@@ -264,11 +201,7 @@ export default function PayPage() {
       const res = await fetch('/api/auth/rebind', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            voucherCode: rebindValue.length < 10 ? rebindValue : undefined,
-            phoneNumber: rebindValue.length >= 10 ? rebindValue : undefined,
-            mac, ip, siteId
-        }),
+        body: JSON.stringify({ voucherCode: rebindValue, mac, ip, siteId }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -280,168 +213,83 @@ export default function PayPage() {
     } finally { setLoading(false); }
   };
 
-  const handleReferral = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!purchasedVoucher || !referPhone) return;
-    setLoading(true);
-    try {
-        const res = await fetch('/api/refer', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ referrerVoucher: purchasedVoucher, referredPhone: referPhone }),
-        });
-        if (res.ok) {
-            alert("✅ Gift Sent! Your friend will get 30 minutes free.");
-            setShowRefer(false);
-        }
-    } catch (e) {} finally { setLoading(false); }
-  };
-
-  const handleTvConnect = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!tvMac || !purchasedVoucher) return;
-    setLoading(true);
-    try {
-        const res = await fetch('/api/auth/connect-tv', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tvMac, voucherCode: purchasedVoucher, siteId }),
-        });
-        if (res.ok) {
-            alert("📺 TV Connected Successfully!");
-            setShowTvConnect(false);
-        }
-    } catch (e) {} finally { setLoading(false); }
-  };
-
-  // 4. RENDERING
   return (
-    <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", backgroundColor: "#f9fafb", fontFamily: "system-ui, -apple-system, sans-serif" }}>
-      <div style={{
-        backgroundColor: "#ffffff",
-        padding: "32px",
-        width: "100%",
-        maxWidth: "480px",
-        display: "flex",
-        flexDirection: "column",
-        minHeight: "100vh",
-        boxShadow: "0 0 40px rgba(0,0,0,0.03)",
-        position: "relative"
-      }}>
+    <div style={{ display: "flex", justifyContent: "center", minHeight: "100vh", backgroundColor: "#f9fafb", fontFamily: "system-ui, sans-serif" }}>
+      <div style={{ backgroundColor: "#ffffff", padding: "32px", width: "100%", maxWidth: "480px", boxShadow: "0 0 40px rgba(0,0,0,0.03)" }}>
 
         {isSuccess ? (
-          <div style={{ textAlign: "center", padding: "60px 20px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
-            <div style={{ backgroundColor: "#ecfdf5", padding: "24px", borderRadius: "50%", marginBottom: "24px" }}>
-              <CheckCircle2 style={{ color: "#10b981", width: "80px", height: "80px" }} />
-            </div>
-            <h1 style={{ fontSize: "32px", fontWeight: "900", color: "#111827", marginBottom: "16px" }}>Payment Received!</h1>
-            <p style={{ color: "#4b5563", fontSize: "16px", marginBottom: "32px" }}>
-              Your internet is being activated...
-            </p>
-
-            <div style={{ backgroundColor: "#f3f4f6", padding: "20px", borderRadius: "16px", width: "100%", marginBottom: "40px" }}>
-              <p style={{ fontSize: "12px", color: "#6b7280", fontWeight: "800", textTransform: "uppercase", marginBottom: "8px" }}>Auto-Login Code</p>
-              <div style={{ fontSize: "32px", fontWeight: "900", color: "#111827", letterSpacing: "2px" }}>{purchasedVoucher}</div>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%" }}>
-                {!showTvConnect ? (
-                    <button onClick={() => setShowTvConnect(true)} style={{ width: "100%", backgroundColor: "#1e293b", color: "#fff", padding: "16px", borderRadius: "14px", border: "none", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}>📺 Connect a Smart TV</button>
-                ) : (
-                    <form onSubmit={handleTvConnect} style={{ backgroundColor: "#f8fafc", padding: "16px", borderRadius: "16px", border: "1px solid #e2e8f0", width: "100%" }}>
-                        <input type="text" placeholder="TV MAC Address" value={tvMac} onChange={e => setTvMac(e.target.value)} style={{ width: "100%", padding: "12px", borderRadius: "10px", border: "1px solid #cbd5e1", marginBottom: "10px", outline: "none" }} required />
-                        <button type="submit" style={{ width: "100%", backgroundColor: "#334155", color: "white", padding: "12px", borderRadius: "10px", border: "none", fontWeight: "700" }}>Connect TV</button>
-                    </form>
-                )}
-                {!showRefer ? (
-                    <button onClick={() => setShowRefer(true)} style={{ width: "100%", backgroundColor: "#f5f3ff", color: "#6366f1", padding: "16px", borderRadius: "14px", border: "1px solid #e0e7ff", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}>🎁 Gift 30 mins to a Friend</button>
-                ) : (
-                    <form onSubmit={handleReferral} style={{ backgroundColor: "#f8fafc", padding: "16px", borderRadius: "16px", border: "1px solid #e2e8f0", width: "100%" }}>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                            <input type="tel" placeholder="07XXXXXXXX" value={referPhone} onChange={e => setReferPhone(e.target.value)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #cbd5e1", fontSize: "14px" }} required />
-                            <button type="submit" style={{ backgroundColor: "#6366f1", color: "white", padding: "12px 20px", borderRadius: "10px", border: "none", fontWeight: "700" }}>Send</button>
-                        </div>
-                    </form>
-                )}
+          <div style={{ textAlign: "center", padding: "60px 20px" }}>
+            <CheckCircle2 style={{ color: "#10b981", width: "80px", height: "80px", margin: "0 auto 24px" }} />
+            <h1 style={{ fontSize: "32px", fontWeight: "900", color: "#111827" }}>Payment Received!</h1>
+            <p style={{ color: "#4b5563", marginBottom: "32px" }}>Connecting you now...</p>
+            <div style={{ backgroundColor: "#f3f4f6", padding: "20px", borderRadius: "16px" }}>
+              <p style={{ fontSize: "12px", color: "#6b7280", fontWeight: "800" }}>VOUCHER CODE</p>
+              <div style={{ fontSize: "32px", fontWeight: "900", color: "#111827" }}>{purchasedVoucher}</div>
             </div>
           </div>
         ) : (
           <>
-            {systemBanner && (
-              <div style={{ width: "100%", backgroundColor: systemBanner.type === 'maintenance' ? '#fff1f2' : '#f0f9ff', border: `1px solid ${systemBanner.type === 'maintenance' ? '#fecdd3' : '#bae6fd'}`, padding: "14px 20px", borderRadius: "14px", marginBottom: "24px", display: "flex", alignItems: "center", gap: "12px" }}>
-                <Zap size={18} color={systemBanner.type === 'maintenance' ? '#e11d48' : '#0284c7'} />
-                <p style={{ color: systemBanner.type === 'maintenance' ? '#9f1239' : '#0369a1', fontSize: "13px", fontWeight: "600", margin: 0 }}>{systemBanner.text}</p>
-              </div>
-            )}
-
-            <h1 style={{ textAlign: "center", marginBottom: "8px", fontWeight: "700", color: "#1e293b", fontSize: "38px", letterSpacing: "-1.5px" }}>
+            <h1 style={{ textAlign: "center", marginBottom: "32px", fontWeight: "700", color: "#1e293b", fontSize: "38px" }}>
               STARLINKNET.<span style={{ color: "#6366f1" }}>WIFI</span>
             </h1>
 
-            <div style={{ backgroundColor: "#f0fdf4", color: "#10b981", padding: "4px 12px", borderRadius: "100px", fontSize: "10px", fontWeight: "700", display: "flex", alignItems: "center", gap: "5px", margin: "0 auto 32px", width: "fit-content", border: "1px solid #dcfce7" }}>
-              ● LINK ACTIVE
-            </div>
-
             {activeTimer && (
-              <div style={{ marginBottom: "32px", backgroundColor: "#111827", padding: "20px", borderRadius: "20px", width: "100%" }}>
-                <p style={{ fontSize: "9px", color: "#9ca3af", fontWeight: "800", textTransform: "uppercase", margin: 0 }}>Remaining Time</p>
-                <div style={{ fontSize: "24px", fontWeight: "900", color: "#10b981", marginTop: "2px" }}>{activeTimer}</div>
+              <div style={{ marginBottom: "32px", backgroundColor: "#111827", padding: "20px", borderRadius: "20px", color: "#10b981", textAlign: "center" }}>
+                <p style={{ fontSize: "11px", color: "#9ca3af", fontWeight: "800", textTransform: "uppercase" }}>Time Remaining</p>
+                <div style={{ fontSize: "28px", fontWeight: "900" }}>{activeTimer}</div>
               </div>
             )}
 
             {isWaitingForPin ? (
               <div style={{ textAlign: "center", padding: "40px 20px" }}>
-                <h3 style={{ color: "#111827", fontSize: "22px", fontWeight: "800" }}>Check Your Phone</h3>
-                <p style={{ color: "#6b7280", fontSize: "15px", marginTop: "8px" }}>Enter M-Pesa PIN on your phone</p>
-                <div style={{ backgroundColor: "#f5f3ff", padding: "20px", borderRadius: "16px", margin: "24px 0", fontSize: "42px", fontWeight: "900", color: "#4f46e5" }}>
-                  00:{countdown.toString().padStart(2, '0')}
-                </div>
-                <button onClick={() => pollVerification(activeReference!)} style={{ width: "100%", backgroundColor: "#111827", color: "white", padding: "16px", borderRadius: "12px", border: "none", fontWeight: "800", marginBottom: "16px" }}>I already entered my PIN</button>
+                <h3 style={{ fontSize: "22px", fontWeight: "800" }}>Check Your Phone</h3>
+                <p style={{ color: "#6b7280" }}>Enter M-Pesa PIN now</p>
+                <div style={{ fontSize: "48px", fontWeight: "900", color: "#4f46e5", margin: "24px 0" }}>00:{countdown}</div>
+                <button onClick={() => pollVerification(activeReference!)} style={{ width: "100%", backgroundColor: "#111827", color: "white", padding: "16px", borderRadius: "12px", border: "none", fontWeight: "800" }}>I have entered my PIN</button>
               </div>
             ) : (
               <>
+                <p style={{ textAlign: "center", color: "#64748b", fontSize: "14px", marginBottom: "24px", fontWeight: "600" }}>Choose a plan and connect instantly</p>
+
+                {/* PLAN SELECTION GRID */}
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "32px" }}>
-                  {fetching ? <div style={{textAlign:"center"}}>Loading...</div> : bundlePlans.map((plan) => (
+                  {fetching ? <div style={{textAlign:"center"}}>Loading plans...</div> : bundlePlans.map((plan) => (
                     <div key={plan.id} onClick={() => setSelectedPlan(plan)} style={{
-                      display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px", borderRadius: "14px",
-                      border: selectedPlan?.id === plan.id ? "3px solid #6366f1" : "1px solid #f1f5f9", cursor: "pointer", backgroundColor: "#fff"
+                      display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px", borderRadius: "16px",
+                      border: selectedPlan?.id === plan.id ? "3px solid #6366f1" : "1px solid #f1f5f9",
+                      cursor: "pointer", backgroundColor: "#fff", transition: "all 0.2s"
                     }}>
                       <div>
-                        <div style={{ fontWeight: "600", color: "#1e293b", fontSize: "18px" }}>{plan.name}</div>
-                        <div style={{ fontSize: "12px", color: "#64748b" }}>{plan.duration} | High-speed</div>
+                        <div style={{ fontWeight: "700", color: "#1e293b", fontSize: "18px" }}>{plan.name}</div>
+                        <div style={{ fontSize: "12px", color: "#94a3b8" }}>{plan.duration || 'Unlimited'} | High Speed</div>
                       </div>
-                      <div style={{ fontWeight: "700", color: "#0f172a", fontSize: "19px" }}>{plan.price} KES</div>
+                      <div style={{ fontWeight: "800", color: "#0f172a", fontSize: "20px" }}>{plan.price} KES</div>
                     </div>
                   ))}
                 </div>
 
                 <form onSubmit={handlePayment} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
                   <input type="tel" required placeholder="M-Pesa Number (07...)" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)}
-                    style={{ width: "100%", padding: "14px", borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "16px", outline: "none" }} />
+                    style={{ width: "100%", padding: "16px", borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: "16px", outline: "none", backgroundColor: "#f9fafb" }} />
 
-                  <button type="submit" disabled={loading} style={{ width: "100%", backgroundColor: loading ? "#9ca3af" : "#111827", color: "#ffffff", padding: "18px", borderRadius: "12px", border: "none", fontSize: "16px", fontWeight: "800" }}>
-                    {loading ? "Please wait..." : `Pay KES ${selectedPlan?.price || ''}`}
+                  <button type="submit" disabled={loading} style={{ width: "100%", backgroundColor: "#111827", color: "#ffffff", padding: "20px", borderRadius: "14px", border: "none", fontSize: "16px", fontWeight: "800", cursor: "pointer" }}>
+                    {loading ? "Please wait..." : `Buy ${selectedPlan?.name || ''}`}
                   </button>
+
+                  <div style={{ textAlign: "center", margin: "10px 0", color: "#94a3b8", fontSize: "12px", fontWeight: "600" }}>OR</div>
 
                   {showTrialPhoneInput && (
                     <input type="tel" placeholder="Phone for 10-Min Trial" value={trialPhoneNumber} onChange={e => setTrialPhoneNumber(e.target.value)}
-                        style={{ width: "100%", padding: "14px", borderRadius: "10px", border: "2px solid #bbf7d0", fontSize: "16px", outline: "none", backgroundColor: "#f0fdf4" }} />
+                        style={{ width: "100%", padding: "16px", borderRadius: "12px", border: "2px solid #bbf7d0", fontSize: "16px", outline: "none", backgroundColor: "#f0fdf4" }} />
                   )}
 
-                  <button type="button" onClick={handleFreeTrial} disabled={loading} style={{ width: "100%", backgroundColor: "#f0fdf4", color: "#16a34a", padding: "16px", borderRadius: "12px", border: "2px dashed #bbf7d0", fontSize: "15px", fontWeight: "700" }}>
-                    {showTrialPhoneInput ? "🚀 Start 10 Minutes Now" : "🎁 Get 10 Minutes FREE Trial"}
+                  <button type="button" onClick={handleFreeTrial} disabled={loading} style={{ width: "100%", backgroundColor: "#f0fdf4", color: "#16a34a", padding: "18px", borderRadius: "14px", border: "2px dashed #bbf7d0", fontSize: "15px", fontWeight: "800", cursor: "pointer" }}>
+                    {showTrialPhoneInput ? "🚀 Start 10 Minutes Free" : "🎁 Get 10 Minutes FREE Trial"}
                   </button>
                 </form>
 
-                <div style={{ marginTop: "24px", textAlign: "center" }}>
-                    {!showRebind ? (
-                        <button onClick={() => setShowRebind(true)} style={{ background: "none", border: "none", color: "#4f46e5", fontSize: "13px", fontWeight: "700" }}>Already paid? Reconnect</button>
-                    ) : (
-                        <form onSubmit={handleRebind} style={{ borderTop: "1px solid #f3f4f6", paddingTop: "20px", display: "flex", gap: "8px" }}>
-                            <input type="text" placeholder="Code or Phone" value={rebindValue} onChange={e => setRebindValue(e.target.value)} style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid #e5e7eb" }} />
-                            <button type="submit" style={{ backgroundColor: "#4f46e5", color: "white", padding: "10px 20px", borderRadius: "10px", border: "none" }}>Go</button>
-                        </form>
-                    )}
+                <div style={{ marginTop: "32px", textAlign: "center" }}>
+                    <button onClick={() => setShowRebind(true)} style={{ background: "none", border: "none", color: "#6366f1", fontSize: "13px", fontWeight: "700", cursor: "pointer" }}>Already paid? Reconnect device</button>
                 </div>
               </>
             )}
@@ -449,15 +297,13 @@ export default function PayPage() {
         )}
 
         {status && (
-          <div style={{ marginTop: "24px", padding: "14px", borderRadius: "10px", textAlign: "center", fontSize: "14px", fontWeight: "600", backgroundColor: status.success ? "#ecfdf5" : "#fef2f2", color: status.success ? "#059669" : "#dc2626" }}>
+          <div style={{ marginTop: "24px", padding: "16px", borderRadius: "12px", textAlign: "center", fontSize: "14px", fontWeight: "700", backgroundColor: status.success ? "#ecfdf5" : "#fef2f2", color: status.success ? "#059669" : "#dc2626" }}>
             {status.message}
           </div>
         )}
 
         <div style={{ marginTop: "40px", textAlign: "center" }}>
-            <a href="tel:0769345599" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", backgroundColor: "#2563eb", color: "#ffffff", padding: "16px", borderRadius: "12px", textDecoration: "none", fontWeight: "800" }}>
-                📞 Support: 0769345599
-            </a>
+            <a href="tel:0769345599" style={{ display: "block", backgroundColor: "#2563eb", color: "#fff", padding: "16px", borderRadius: "14px", textDecoration: "none", fontWeight: "800", fontSize: "15px" }}>📞 Support: 0769345599</a>
         </div>
       </div>
     </div>
