@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { XCircle, CheckCircle2, ShieldAlert, Zap, Wifi, Phone, Clock, Monitor } from 'lucide-react';
+import { XCircle, CheckCircle2, ShieldAlert, Zap, Wifi, Phone, Clock, Monitor, Smartphone } from 'lucide-react';
 
 export default function PayPage() {
   const [phoneNumber, setPhoneNumber] = useState("");
