@@ -670,7 +670,6 @@ export default function PayPage() {
                   }}>
                     {loading ? "Please wait..." : showTrialPhoneInput ? "🚀 Start My 10 Minutes Now" : "🎁 Get 10 Minutes FREE Trial"}
                   </button>
-                  </button>
 
                   {/* ABANDONED CART JS TRACKING OFFER */}
                   {showAbandonedOffer && (
