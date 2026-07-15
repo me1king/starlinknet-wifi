@@ -288,11 +288,20 @@ export default function PayPage() {
                 </div>
 
                 <form onSubmit={handlePayment} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                  <input type="tel" required placeholder="M-Pesa Number (07...)" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)}
-                    style={{ width: "100%", padding: "16px", borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: "16px", outline: "none", backgroundColor: "#f9fafb" }} />
+                  <div>
+                    <label style={{ display: "block", fontSize: "11px", fontWeight: "800", color: "#64748b", marginBottom: "8px", textTransform: "uppercase", trackingSpacing: "0.05em" }}>Receipt Email (Gmail)</label>
+                    <input type="email" placeholder="customer@gmail.com" value={email} onChange={e => setEmail(e.target.value)}
+                      style={{ width: "100%", padding: "16px", borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: "16px", outline: "none", backgroundColor: "#f8fafc", transition: "border 0.2s" }} />
+                  </div>
 
-                  <button type="submit" disabled={loading} style={{ width: "100%", backgroundColor: "#111827", color: "#ffffff", padding: "20px", borderRadius: "14px", border: "none", fontSize: "16px", fontWeight: "800", cursor: "pointer" }}>
-                    {loading ? "Please wait..." : `Buy ${selectedPlan?.name || ''}`}
+                  <div>
+                    <label style={{ display: "block", fontSize: "11px", fontWeight: "800", color: "#64748b", marginBottom: "8px", textTransform: "uppercase", trackingSpacing: "0.05em" }}>M-Pesa Number</label>
+                    <input type="tel" required placeholder="07XXXXXXXX" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)}
+                      style={{ width: "100%", padding: "16px", borderRadius: "12px", border: "1px solid #e2e8f0", fontSize: "16px", outline: "none", backgroundColor: "#f8fafc" }} />
+                  </div>
+
+                  <button type="submit" disabled={loading} style={{ width: "100%", backgroundColor: "#111827", color: "#ffffff", padding: "20px", borderRadius: "14px", border: "none", fontSize: "16px", fontWeight: "800", cursor: "pointer", transition: "transform 0.1s" }}>
+                    {loading ? "Processing..." : `Buy ${selectedPlan?.name || 'Plan'}`}
                   </button>
 
                   <div style={{ textAlign: "center", margin: "10px 0", color: "#94a3b8", fontSize: "12px", fontWeight: "600" }}>OR</div>
