@@ -35,6 +35,8 @@ export default function PayPage() {
   const [countdown, setCountdown] = useState(60);
   const [activeReference, setActiveReference] = useState<string | null>(null);
   const [systemBanner, setSystemBanner] = useState<{ text: string, type: string } | null>(null);
+  const [trialPhoneNumber, setTrialPhoneNumber] = useState("");
+  const [showTrialPhoneInput, setShowTrialPhoneInput] = useState(false);
 
   // High-Concurrency Optimization: Local Storage Caching
   useEffect(() => {
@@ -288,6 +290,17 @@ export default function PayPage() {
 
   const handleFreeTrial = async () => {
     if (loading) return;
+
+    if (!showTrialPhoneInput) {
+        setShowTrialPhoneInput(true);
+        return;
+    }
+
+    if (!trialPhoneNumber || trialPhoneNumber.length < 10) {
+        setStatus({ success: false, message: "⚠️ Please enter a valid phone number to start your trial." });
+        return;
+    }
+
     if (!mac) {
         setStatus({ success: false, message: "⚠️ Device ID missing. Reconnect Wi-Fi to start trial." });
         return;
@@ -297,7 +310,7 @@ export default function PayPage() {
         const res = await fetch('/api/pay/free-trial', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mac, ip, siteId }),
+            body: JSON.stringify({ mac, ip, siteId, phoneNumber: trialPhoneNumber }),
         });
         const data = await res.json();
         if (res.ok) {
@@ -642,12 +655,21 @@ export default function PayPage() {
                     <span style={{ backgroundColor: "#ffffff", padding: "0 10px", color: "#9ca3af", fontSize: "12px", fontWeight: "600", position: "relative" }}>OR</span>
                   </div>
 
-                  <button type="button" onClick={() => { setHasAbandonedInteracted(true); handleFreeTrial(); }} disabled={loading} style={{
+                  {showTrialPhoneInput && (
+                    <div style={{ animation: "fadeIn 0.3s ease-out" }}>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#16a34a", marginBottom: "6px", textTransform: "uppercase" }}>Enter Phone for 10-Min Trial</label>
+                      <input type="tel" placeholder="07XXXXXXXX" value={trialPhoneNumber} onChange={e => setTrialPhoneNumber(e.target.value)}
+                        style={{ width: "100%", padding: "14px", borderRadius: "10px", border: "2px solid #bbf7d0", fontSize: "16px", outline: "none", backgroundColor: "#f0fdf4", marginBottom: "12px" }} />
+                    </div>
+                  )}
+
+                  <button type="button" onClick={() => handleFreeTrial()} disabled={loading} style={{
                     width: "100%", backgroundColor: "#f0fdf4", color: "#16a34a", padding: "16px",
                     borderRadius: "12px", border: "2px dashed #bbf7d0", fontSize: "15px", fontWeight: "700", cursor: "pointer",
                     transition: "all 0.2s"
                   }}>
-                    {loading ? "Please wait..." : "🎁 Get 10 Minutes FREE Trial"}
+                    {loading ? "Please wait..." : showTrialPhoneInput ? "🚀 Start My 10 Minutes Now" : "🎁 Get 10 Minutes FREE Trial"}
+                  </button>
                   </button>
 
                   {/* ABANDONED CART JS TRACKING OFFER */}

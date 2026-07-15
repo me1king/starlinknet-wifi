@@ -5,7 +5,7 @@ import { sendVoucherWhatsApp } from '@/lib/whatsapp-cloud';
 
 export async function POST(req: NextRequest) {
   try {
-    const { mac, ip, siteId } = await req.json();
+    const { mac, ip, siteId, phoneNumber } = await req.json();
 
     if (!mac) {
       return NextResponse.json({ error: "Could not identify your device" }, { status: 400 });
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const cleanMac = mac.toUpperCase().replace(/[^A-F0-9]/g, "");
     const currentSiteId = siteId || 'default-site';
 
-    // 1. Hardened Device Check (SQLite Level)
+    // 1. Hardened Device Check
     const device = await prisma.deviceProfile.findUnique({
       where: { macAddress: cleanMac }
     });
@@ -25,19 +25,38 @@ export async function POST(req: NextRequest) {
       }, { status: 403 });
     }
 
-    // 2. Mark Trial as Used Immediately
+    // 2. Mark Trial as Used Immediately & Store Phone
     await prisma.deviceProfile.upsert({
       where: { macAddress: cleanMac },
-      update: { trialUsed: true, trialUsedAt: new Date(), totalSessions: { increment: 1 } },
+      update: {
+        trialUsed: true,
+        trialUsedAt: new Date(),
+        totalSessions: { increment: 1 },
+        phoneNumber: phoneNumber ? String(phoneNumber) : undefined
+      },
       create: {
         macAddress: cleanMac,
         ipAddress: ip,
         trialUsed: true,
         trialUsedAt: new Date(),
         totalSessions: 1,
-        siteId: currentSiteId
+        siteId: currentSiteId,
+        phoneNumber: phoneNumber ? String(phoneNumber) : undefined
       }
     });
+
+    // Create a 'trial' payment record for visibility in ledger
+    await prisma.payment.create({
+        data: {
+            transactionRef: `TRIAL-${cleanMac}-${Date.now()}`,
+            amount: 0,
+            phoneNumber: phoneNumber ? String(phoneNumber) : 'Trial-User',
+            voucherCode: 'FREE-TRIAL',
+            status: 'active',
+            siteId: currentSiteId,
+            resultDesc: `10-Min Free Trial used by ${phoneNumber || 'unknown'}`
+        }
+    }).catch(() => {});
 
     // 3. Provision 10-Min Trial on Router
     const trialCode = `TRIAL-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
