@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Users, TrendingUp, Activity, Router, LogOut, Settings,
@@ -178,7 +178,7 @@ export default function AdminDashboard() {
         const data = await res.json();
         if (res.ok) {
             setLastCleanup(new Date().toLocaleTimeString());
-            alert(`✅ Ghost Buster: Kicked ${data.kickedCount} idle users.`);
+            alert(`✅ Ghost Buster Complete! Kicked ${data.kickedCount}.`);
             fetchData(false);
         }
     } catch (e) {} finally { setActionLoading(false); }

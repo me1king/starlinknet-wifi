@@ -38,7 +38,7 @@ const getPrisma = () => {
 
     // SCALE CHECK: Ensure high connection limit for high-traffic (20+ per second)
     const hasLimit = dbUrl.includes('connection_limit');
-    const finalUrl = (process.env.NODE_ENV === 'production' && !hasLimit)
+    const finalUrl = !hasLimit
         ? `${dbUrl}${dbUrl.includes('?') ? '&' : '?'}connection_limit=100&pool_timeout=30`
         : dbUrl;
 
